@@ -10,6 +10,7 @@ library(glmnet)
 library(foreign)
 library(reshape2)
 library(R.matlab)
+library(Synth)
 
 ## Load the data
 #load("germany_data.RData")
@@ -21,6 +22,8 @@ d <- x
 #########################
 # TRY 2
 
+#I think that this is Lea's edit and the only reason that we needed it was so that we can get Y1, Y0, etc.
+#I need to get the dataprep function before this will work
 dataprep.out <-
   dataprep(
     foo = d,
@@ -43,6 +46,7 @@ dataprep.out <-
 
 #######################################
 
+#prepping the pieces
 X0 <- dataprep.out$X0
 X1 <- dataprep.out$X1
 
@@ -63,21 +67,34 @@ Y <- cbind(Y1, Y0)
 Z <- cbind(Z1, Z0)
 
 ## Parameters
+#hmmm what is the a parameter?
 a <- 1/3
+
+#number of covariates
 K <- dim(X)[1]
+
+#number of units
 N <- dim(Y)[2]
+
+#number of periods
 T <- dim(Y)[1]
+
+#number of pretreatment periods
 T0 <- dim(Z)[1]
+#number of post-treatment peiords
 T1 <- T - T0
+#not sure what these are. They don't ever get used as far as I can tell.
 T0_tr <- floor(T0 * 2 / 3)
 T0_te <- T0 - T0_tr
 
 # Normalize
+#why do we only normalize the x variables? Also we're normalizing by the standard errors I think.
 div <- as.matrix(apply(X, 1, sd))
 X <- X / div[,rep(1, N)]
 
-## Fit the model
+## "Fit" the model
 int_did <- matrix(0, nrow = 1, ncol = 1)
+#constant weights
 w_did <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1)
 Y_did <- matrix(0, nrow = T, ncol = 1)
 Y_did <- matrix(0, nrow = T, ncol = 1)
@@ -91,12 +108,15 @@ X1 <- as.matrix(X[,i])
 X0 <- as.matrix(X[,-i])
 # Fit did
 w <- w_did
+#intercept? are the Zs just pretreatment periods? I guess I could check pretty easily. Yeah that's what they are  I think
 int_did <- as.matrix(mean(Z1) - mean(Z0))
 Y_did <- int_did[rep(1, T),] + Y0 %*% w
 Y_true <- Y1
 
 ## Compute the standard errors
 # Over units
+
+#this is the same process as before, I think that it would be pretty easy to write the se thing as a separate procedure.
 std_err_i <- matrix(0, T1, N - 1)
 for (i in 2:N) {
   Y1 <- as.matrix(Y[,i])
