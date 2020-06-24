@@ -107,6 +107,8 @@ Z0 <- as.matrix(Z[,-i])
 X1 <- as.matrix(X[,i])
 X0 <- as.matrix(X[,-i])
 # Fit did
+
+#(w are the weights/omegas etc)
 w <- w_did
 #intercept? are the Zs just pretreatment periods? I guess I could check pretty easily. Yeah that's what they are  I think
 int_did <- as.matrix(mean(Z1) - mean(Z0))

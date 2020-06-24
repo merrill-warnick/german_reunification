@@ -30,6 +30,9 @@ d <- load("repgermany.Rdata")
 # X1: matrix of treated predictor matrix (# predi x 1)
 # X0: matrix of controls' predictor matrix(# predi x # of controls)
 
+
+#how much of this code is redundant if we just use dataprep? It kind of just looks like this part is setting up the data which we just do using dataprep anyway.
+
 # X1
 num70 <- which(d$year==1970)
 num75 <- which(d$year==1975)
@@ -215,7 +218,9 @@ for (j in 1:length(subs_n)) {
   err_cur[j,1] <- mean((V1 - V0 %*% w_cur) ^ 2)
 }
 j_opt <- which.min(err_cur)
+#this is the mu
 int_subs <- as.matrix(int[1,j_opt])
+#this is the omega
 w_subs <- w[,j_opt]
 Y_subs <- int[rep(1, T),j_opt] + Y0 %*% w[,j_opt]
 Y_true <- Y1
@@ -359,6 +364,10 @@ for (i in 2:N) {
   std_err_it[i - 1,1] <- std_err_temp
 }
 std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+
+
+#hmmm I noticed that there's not a counterfactual specific thing in these other sections
+#oh I guess he only does it in the elastic net and synth control ones which makes sense.
 
 # Copy the standard errors
 std_err_subs_i <- std_err_i

@@ -46,6 +46,8 @@ dataprep.out <-
     ),
     treatment.identifier = 7,
     controls.identifier = unique(d$index)[-7],
+    
+    #this matches what we're doing in synth!
     time.predictors.prior = 1981:1990,
     time.optimize.ssr = 1960:1989,
     unit.names.variable = 2,
@@ -81,15 +83,21 @@ T1 <- T - T0
 T0_tr <- floor(T0 * 2 / 3)
 T0_te <- T0 - T0_tr
 
+#okay so counterfactual: we're setting year 1980 for the counterfactual exercise.
 ## Counterfactual
 T0_co <- 21
 T1_co <- T0 - T0_co
 
 # Normalize
+#hmmmmm why are we normalizing? In the paper we say that we don't want to normalize Y^obs_c,pre and I thinkt hat that's what we're doing right here.
+#I'll talk to Lea about this one also
 div <- as.matrix(apply(X, 1, sd))
 X <- X / div[,rep(1, N)]
 
-## Find the optimal elast
+## Find the optimal elasticity
+
+#I'm a teeny bit confused about how this code works exactly but I get the idea, I just don't get all of the mechanics
+
 # Iterate over i
 lambda_grid <- c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                  seq(from = 2e-01, to = 100, by = 1e-01), 
@@ -156,6 +164,8 @@ Z1 <- as.matrix(Z[,i])
 Z0 <- as.matrix(Z[,-i])
 X1 <- as.matrix(X[,i])
 X0 <- as.matrix(X[,-i])
+
+#hmmm I guess it's fine since the xs get scaled but the zs never get scaled
 V1 <- scale(Z1, scale = FALSE)
 V0 <- scale(Z0, scale = FALSE)
 # Fit elast
@@ -170,6 +180,8 @@ int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
 w_elast <- w
 Y_elast <- int_elast[rep(1, T),] + Y0 %*% w
 Y_true <- Y1
+
+#this standard errors procedure looks the same in all the files.
 
 ## Compute the standard errors
 # Over units
@@ -262,6 +274,8 @@ std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
 std_err_elast_i <- std_err_i
 std_err_elast_t <- std_err_t
 std_err_elast_it <- std_err_it
+
+#then we do the counterfactual exercize
 
 ## Find the optimal counterfactual elast
 # Iterate over i
