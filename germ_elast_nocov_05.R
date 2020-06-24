@@ -11,31 +11,20 @@ library(foreign)
 library(reshape2)
 library(R.matlab)
 
-## Load the data
-#load("germany_data.RData")
+######################
+####### DATA #########
+######################
 
-##############################
-##############################
-##############################
-# DATA TRIAL 
-##############################
-##############################
-##############################
-
-## Load the data
-#load("germany_data.RData")
+## Load the data- from website in Rdata format
 load("repgermany.Rdata")
 d <- x
 
-#########################
-#########################
-#########################
-# TRY 2
-
+##############
+# Use dataprep function from synthetic control package to extract X0, X1, etc.
 dataprep.out <-
   dataprep(
     foo = d,
-    predictors    = c("gdp","trade","infrate"),
+    predictors    = c("gdp","trade","infrate"), 
     dependent     = "gdp",
     unit.variable = 1,
     time.variable = 3,
@@ -52,7 +41,15 @@ dataprep.out <-
     time.plot = 1960:2003
   )
 
-#######################################
+# Predictors will be GDP, TRADE, INFRATE from 1981:1990 plus mean industry
+# from 1981:190, schooling in 1980 and 1985 and invest80 in 1980
+# treatment.identifier 7 corresponds to Germany
+# controls identifier (all minus 7) corresponds to all other countries
+# optimize.ssr: choose V s.t. over 1960 to 1989 MSPE is minimized???? -> look into this
+
+
+##############
+# Extract X0,X1, etc. from dataprep object
 
 X0 <- dataprep.out$X0
 X1 <- dataprep.out$X1
@@ -63,6 +60,10 @@ Z0 <- dataprep.out$Z0
 Y1 <- dataprep.out$Y1plot
 Y0 <- dataprep.out$Y0plot
 
+##############
+# Combine to get X, Z and Y matrix
+
+# Make sure that treated unit is at beginning! Essential for Std Er function!
 # [X1,X0]
 X <- cbind(X1, X0)
 
@@ -72,82 +73,111 @@ Y <- cbind(Y1, Y0)
 # [Z1,Z0]
 Z <- cbind(Z1, Z0)
 
-## Parameters
-K <- dim(X)[1]
-N <- dim(Y)[2]
-T <- dim(Y)[1]
-T0 <- dim(Z)[1]
-T1 <- T - T0
-T0_tr <- floor(T0 * 2 / 3)
-T0_te <- T0 - T0_tr
+############################
+####### PARAMETERS #########
+############################
 
+## Define Parameters
+K <- dim(X)[1] # Number of predictors
+N <- dim(Y)[2] # Number of units
+T <- dim(Y)[1] # Number of time periods
+T0 <- dim(Z)[1] # Time of intervention
+T1 <- T - T0 # Time periods after intervention
+#T0_tr <- floor(T0 * 2 / 3) # What is this??
+#T0_te <- T0 - T0_tr # What is this?? - never used
+
+# Define time period of intervention and time after intervention for counterfactual - why?
 ## Counterfactual
 T0_co <- 21
 T1_co <- T0 - T0_co
 
-# Normalize
-div <- as.matrix(apply(X, 1, sd))
-X <- X / div[,rep(1, N)]
+# Normalize predictors
+div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
 
-## Find the optimal elast
-# Iterate over i
+#####################################
+####### Optimal elastic net #########
+#####################################
+
+## Find the optimal elastic net:
+# optimal alpha and lambda selected from minimal standard error
+
+# Iterate over i (units)
+
+# Definitions
 lambda_grid <- c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                  seq(from = 2e-01, to = 100, by = 1e-01), 
-                 seq(from = 200, to = 50000, by = 100))
-a_grid <- seq(from = 0.1, to = 0.9, by = 0.1)
-nlambda <- length(lambda_grid)
-na <- length(a_grid)
-err_alpha <- matrix(0, nrow = na, ncol = 1)
-lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1)
+                 seq(from = 200, to = 50000, by = 100)) # non-linear lambda grid- why not just exponential??/ how did you determine it needs 5000
+a_grid <- seq(from = 0.1, to = 0.9, by = 0.1) # alpha for convex combination between two penalty terms: exlude 0 and 1
+nlambda <- length(lambda_grid) # length of lambda grid
+na <- length(a_grid) # length of a grid
+err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
+lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
+
+# Iteration
 cat('*** Main ***\n')
-for (j in 1:na) {
+for (j in 1:na) { # Iterate over alpha points
   a <- a_grid[j]
   cat('a =', toString(a), '\n')
-  err <- matrix(0, nrow = N - 1, ncol = nlambda)
-  for (i in 2:N) {
+  err <- matrix(0, nrow = N - 1, ncol = nlambda) # Matrix for storage of error terms for each control unit and all lambda values
+  for (i in 2:N) { # iterate over units
+    
+    # Determine matrices appropriately
     Y1 <- as.matrix(Y[,i])
     Y0 <- as.matrix(Y[,-c(1,i)])
     Z1 <- as.matrix(Z[,i])
     Z0 <- as.matrix(Z[,-c(1,i)])
     X1 <- as.matrix(X[,i])
     X0 <- as.matrix(X[,-c(1,i)])
-    Z1_tr <- Z1
-    Z0_tr <- Z0
-    Z1_te <- as.matrix(Y1[-(1:T0),])
-    Z0_te <- as.matrix(Y0[-(1:T0),])
+    Z1_tr <- Z1 # what does this stand for: tr??
+    Z0_tr <- Z0 # pre-treatment outcomes?
+    Z1_te <- as.matrix(Y1[-(1:T0),]) # what does this stand for: te??
+    Z0_te <- as.matrix(Y0[-(1:T0),]) # post treatment outcomes?
     
-    # Fit elast
+    # Fit elastic net -> on pre-treatment outcomes
     V1 <- scale(Z1_tr, scale = FALSE)
     V0 <- scale(Z0_tr, scale = FALSE)
     fit <- glmnet(x = V0, y = V1,
                   alpha = a,
                   lambda = lambda_grid,
                   standardize = FALSE,
-                  intercept = FALSE)
-    w <- as.matrix(coef(fit, s = lambda_grid))
-    w <- w[-1,]
-    int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean)))
-    e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w
-    err[i - 1,] <- colMeans(e ^ 2)
+                  intercept = FALSE) # elastic net function: alpha = a and for all lambda points in lambda grid
+    w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
+    w <- w[-1,] # Delete intercept
+    int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
+    e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
+    err[i - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
   }
+  
   # Optimal lambda
   #err <- apply(t(scale(t(err))), 2, mean)
-  err <- apply(err, 2, mean)
+  err <- apply(err, 2, mean) # mean error over all control units
   #ind_opt <- max(which(err <= min(err) + 1 * sd(err)))
-  ind_opt <- which.min(err)
-  err_alpha[j] <- err[ind_opt]
-  lambda_opt_alpha[j] <- lambda_grid[ind_opt]
+  ind_opt <- which.min(err) # Find lambda that minimizes error
+  err_alpha[j] <- err[ind_opt] # Save that error for this alpha
+  lambda_opt_alpha[j] <- lambda_grid[ind_opt] # Save the corresponding lambda value
 }
-# Optimal a
-ind_opt <- which.min(err_alpha)
-a_opt <- a_grid[ind_opt]
-lambda_opt <- lambda_opt_alpha[ind_opt]
 
+# After loop:
+# Optimal a
+ind_opt <- which.min(err_alpha) # Find alpha that minimizes error
+a_opt <- a_grid[ind_opt]
+lambda_opt <- lambda_opt_alpha[ind_opt] # Find associated lambda value
+
+###########################
+####### Fit Model #########
+###########################
+
+# After having found optimal alpha and lambda, we can finally fit the model
 ## Fit the model
+
+# Matrices for storage
 int_elast <- matrix(0, nrow = 1, ncol = 1)
 w_elast <- matrix(0, nrow = N - 1, ncol = 1)
 Y_elast <- matrix(0, nrow = T, ncol = 1)
 Y_true <- matrix(0, nrow = T, ncol = 1)
+
+# Fix treatment unit
 # West Germany
 i <- 1
 Y1 <- as.matrix(Y[,i])
@@ -158,113 +188,141 @@ X1 <- as.matrix(X[,i])
 X0 <- as.matrix(X[,-i])
 V1 <- scale(Z1, scale = FALSE)
 V0 <- scale(Z0, scale = FALSE)
-# Fit elast
+
+###########
+# Fit elastic net
 fit <- glmnet(x = V0, y = V1,
               alpha = a_opt,
               lambda = lambda_grid,
               standardize = FALSE,
-              intercept = FALSE)
-w <- as.matrix(coef(fit, s = lambda_opt))
-w <- w[-1,]
-int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
-w_elast <- w
-Y_elast <- int_elast[rep(1, T),] + Y0 %*% w
+              intercept = FALSE) # Function to fit elastic net with optimal alpha over lambda grid
+w <- as.matrix(coef(fit, s = lambda_opt)) # only save coefficients for optimal lambda
+w <- w[-1,] # Delete intercept
+int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean)) # Dimension: 1x1
+w_elast <- w # Elastic net weights for all 16 units
+Y_elast <- int_elast[rep(1, T),] + Y0 %*% w # Estimated Y (no treatment)
 Y_true <- Y1
 
-## Compute the standard errors
+#################################
+####### Standard Errors #########
+#################################
+
 # Over units
-std_err_i <- matrix(0, N - 1, T1)
+std_err_i <- matrix(0, N - 1, T1) # Storage matrix
 for (i in 2:N) {
   cat('(Std. Error) Over Unit i =', toString(i), '\n')
+  
+  # Define matrices appropriately
   Y1 <- as.matrix(Y[,i])
-  Y0 <- as.matrix(Y[,-c(1,i)])
+  Y0 <- as.matrix(Y[,-c(1,i)]) # also delete West Germany here
   Z1 <- as.matrix(Z[,i])
   Z0 <- as.matrix(Z[,-c(1,i)])
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-c(1,i)])
   
-  # Fit elast
+  # Fit elastic net
+  # Use same optimal alpha and lambda here
   V1 <- scale(Z1, scale = FALSE)
   V0 <- scale(Z0, scale = FALSE)
   fit <- glmnet(x = V0, y = V1,
                 alpha = a_opt,
                 lambda = lambda_grid,
                 standardize = FALSE,
-                intercept = FALSE)
-  w <- as.matrix(coef(fit, s = lambda_opt))
+                intercept = FALSE) # Fit for optimal alpha and lambda grid
+  w <- as.matrix(coef(fit, s = lambda_opt)) # Save coefficients for optimal lambda only
   w <- w[-1,]
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
-  std_err_i[i - 1,] <- (Y1[-c(1:T0),] - int[rep(1,T1),] - Y0[-c(1:T0),] %*% w) ^ 2
+  std_err_i[i - 1,] <- (Y1[-c(1:T0),] - int[rep(1,T1),] - Y0[-c(1:T0),] %*% w) ^ 2 # Save SSR for each unit
 }
-std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean))) # Sqrt of mean of all SSR is Std Err over units
 
 # Over time
-s <- floor(T0 / 2)
-std_err_t <- matrix(0, s, 1)
+s <- floor(T0 / 2) # Number of periods for Std Errs
+std_err_t <- matrix(0, s, 1) # Storage matrix 
+
+# Fix matrices for Y and X for time-varying standard errors
 Y1 <- as.matrix(Y[,1])
 Y0 <- as.matrix(Y[,-1])
 X1 <- as.matrix(X[,1])
 X0 <- as.matrix(X[,-1])
+
 for (t in 1:s) {
   cat('(Std. Error) Over Time t =', toString(t), '\n')
-  Z1 <- as.matrix(Z[c(1:(T0 - t)),1])
+  
+  # Have varying Z matrices: Z = pre-treatment outcome over which MSPE to be minimized
+  Z1 <- as.matrix(Z[c(1:(T0 - t)),1]) # Pretend intervention happens earlier
   Z0 <- as.matrix(Z[c(1:(T0 - t)),-1])
   
-  # Fit elast
+  # Fit elast: same optimal alpha and lambda
   V1 <- scale(Z1, scale = FALSE)
   V0 <- scale(Z0, scale = FALSE)
   fit <- glmnet(x = V0, y = V1,
                 alpha = a_opt,
                 lambda = lambda_grid,
                 standardize = FALSE,
-                intercept = FALSE)
-  w <- as.matrix(coef(fit, s = lambda_opt))
-  w <- w[-1,]
+                intercept = FALSE) # Fit with optimal alpha and over lambda grid
+  w <- as.matrix(coef(fit, s = lambda_opt)) # Save for optimal lambda only
+  w <- w[-1,] # Delete intercept
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
-  std_err_t[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2
+  std_err_t[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point
 }
 std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
 
 # Over units and time
 std_err_it <- matrix(0, N - 1, 1)
-for (i in 2:N) {
+
+for (i in 2:N) { # units
+  
+  # Fix Y and X matrices
   Y1 <- as.matrix(Y[,i])
   Y0 <- as.matrix(Y[,-c(1,i)])
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-c(1,i)])
   
-  std_err_temp <- matrix(0, s, 1)
+  std_err_temp <- matrix(0, s, 1) # Std Err for each number of varying periods
+  
   for (t in 1:s) {
     cat('(Std. Error) Over Unit and Time ( i , t ) = (',toString(i), ',', 
         toString(t), ')\n')
+    
+    # Same time-varying Z, but now different unit treatment (i)
     Z1 <- as.matrix(Z[c(1:(T0 - t)),i])
     Z0 <- as.matrix(Z[c(1:(T0 - t)),-c(1,i)])
     
-    # Fit elast
+    # Fit elastic net
     V1 <- scale(Z1, scale = FALSE)
     V0 <- scale(Z0, scale = FALSE)
     fit <- glmnet(x = V0, y = V1,
                   alpha = a_opt,
                   lambda = lambda_grid,
                   standardize = FALSE,
-                  intercept = FALSE)
-    w <- as.matrix(coef(fit, s = lambda_opt))
-    w <- w[-1,]
+                  intercept = FALSE) # Fit function same optimal alpha and lambda grid
+    w <- as.matrix(coef(fit, s = lambda_opt)) # Save coefficient only for optimal lambda
+    w <- w[-1,] # Delete intercept
     int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
-    std_err_temp[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2
+    std_err_temp[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point
   }
-  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
-  std_err_it[i - 1,1] <- std_err_temp
+  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean)) # Get average std err over time
+  std_err_it[i - 1,1] <- std_err_temp # Save that as std err for that specific unit
 }
-std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean))) # Sqrt of mean of these unit time std err is std err
 
 # Copy the standard errors
 std_err_elast_i <- std_err_i
 std_err_elast_t <- std_err_t
 std_err_elast_it <- std_err_it
 
-## Find the optimal counterfactual elast
+################################
+####### Counterfactual #########
+################################
+
+# Pretend intervention happened in T0 = 21 and not T0 = 30
+
+######
+## Find the optimal counterfactual elastic net
 # Iterate over i
+
+# Definitions
 lambda_grid <- c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                  seq(from = 2e-01, to = 100, by = 1e-01), 
                  seq(from = 200, to = 50000, by = 100))
@@ -273,7 +331,11 @@ nlambda <- length(lambda_grid)
 na <- length(a_grid)
 err_alpha <- matrix(0, nrow = na, ncol = 1)
 lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1)
+
 cat('*** Counterfactual ***\n')
+
+# Repeat same as above, but now: 
+# Z1 and Z0 are based on T0_co -> Y still on T0 though..how??
 for (j in 1:na) {
   a <- a_grid[j]
   cat('a =', toString(a), '\n')
@@ -290,7 +352,7 @@ for (j in 1:na) {
     Z1_te <- as.matrix(Y1[-(1:T0_co),])
     Z0_te <- as.matrix(Y0[-(1:T0_co),])
     
-    # Fit elast
+    # Fit elastic net
     V1 <- scale(Z1_tr, scale = FALSE)
     V0 <- scale(Z0_tr, scale = FALSE)
     fit <- glmnet(x = V0, y = V1,
@@ -317,11 +379,17 @@ ind_opt <- which.min(err_alpha)
 a_opt_co <- a_grid[ind_opt]
 lambda_opt_co <- lambda_opt_alpha[ind_opt]
 
+
+###########################
+####### Fit model #########
+###########################
+
 ## Compute the counterfactual treatment
 int_elast_co <- matrix(0, nrow = 1, ncol = 1)
 w_elast_co <- matrix(0, nrow = N - 1, ncol = 1)
-Y_elast_co <- matrix(0, nrow = T0, ncol = 1)
+Y_elast_co <- matrix(0, nrow = T0, ncol = 1) # Still up until T0 original
 Y_true_co <- matrix(0, nrow = T0, ncol = 1)
+
 # West Germany
 i <- 1
 Y1 <- as.matrix(Y[1:T0,i])
@@ -332,7 +400,8 @@ X1 <- as.matrix(X[,i])
 X0 <- as.matrix(X[,-i])
 V1 <- scale(Z1, scale = FALSE)
 V0 <- scale(Z0, scale = FALSE)
-# Fit elast
+
+# Fit elastic net
 fit <- glmnet(x = V0, y = V1,
               alpha = a_opt_co,
               lambda = lambda_grid,
@@ -340,9 +409,9 @@ fit <- glmnet(x = V0, y = V1,
               intercept = FALSE)
 w <- as.matrix(coef(fit, s = lambda_opt_co))
 w <- w[-1,]
-int_elast_co <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
+int_elast_co <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean)) # Only based on T0_co
 w_elast_co <- w
-Y_elast_co <- int_elast_co[rep(1, T0),] + Y0 %*% w
+Y_elast_co <- int_elast_co[rep(1, T0),] + Y0 %*% w # Estimated Y for fit based on T0_co
 Y_true_co <- Y1
 
 ## Compute the standard errors
@@ -357,7 +426,7 @@ for (i in 2:N) {
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-c(1,i)])
   
-  # Fit elast
+  # Fit elastic net based on optimal alpha and lambda counterfactual
   V1 <- scale(Z1, scale = FALSE)
   V0 <- scale(Z0, scale = FALSE)
   fit <- glmnet(x = V0, y = V1,
@@ -374,6 +443,11 @@ std_err_i_co <- as.matrix(sqrt(apply(std_err_i_co, 2, mean)))
 
 # Copy the counterfactual standard errors
 std_err_elast_i_co <- std_err_i_co
+
+
+##############################
+####### Save Results #########
+##############################
 
 ## Save the results
 save(list = c("w_elast", "int_elast", "Y_elast", "Y_true", "a_opt", "lambda_opt", 
@@ -393,4 +467,3 @@ writeMat("germ_elast_nocov_05.mat",
          std_err_elast_i_co = std_err_i_co, 
          T0_co = T0_co,
          T1_co = T1_co)
-
