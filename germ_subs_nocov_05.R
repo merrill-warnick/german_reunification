@@ -97,10 +97,10 @@ X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
 ## Find the optimal subset #!!
 # Iterate over i
 n_max <- N - 1 # Number of units in subset ?
-n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # What is this grid?? 
+n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # What is this grid?? Why N-2 and N-1?
 nn <- length(n_grid) # Number of points in n grid
 err <- matrix(0, nrow = N - 1, ncol = nn) # Storage for errors for each unit and n
-c <- matrix(1, nrow = T0, ncol = 1) # What is c??
+c <- matrix(1, nrow = T0, ncol = 1) # Just a constant! Needed for fit here later
 
 for (i in 2:N) { # over units
   cat('Unit', toString(i), '\n')
@@ -135,7 +135,7 @@ for (i in 2:N) { # over units
       w[sub,j] <- w_cur[-1]
       err_cur[j,1] <- mean((V1 - V0 %*% w_cur) ^ 2)
     }
-    # Choose the optimal subset of size n and compute the error
+    # Choose the optimal subset of size n and compute the error over time
     j_opt <- which.min(err_cur)
     e <- Z1_te - int[rep(1, T1),j_opt] - Z0_te %*% w[,j_opt]
     err[i - 1,n + 1] <- mean(e ^ 2)

@@ -107,7 +107,7 @@ X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
 # Definitions
 lambda_grid <- c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                  seq(from = 2e-01, to = 100, by = 1e-01), 
-                 seq(from = 200, to = 50000, by = 100)) # non-linear lambda grid- why not just exponential??/ how did you determine it needs 5000
+                 seq(from = 200, to = 50000, by = 100)) # non-linear lambda grid- why not just log-linear??/ how did you determine it needs 5000
 a_grid <- seq(from = 0.1, to = 0.9, by = 0.1) # alpha for convex combination between two penalty terms: exlude 0 and 1
 nlambda <- length(lambda_grid) # length of lambda grid
 na <- length(a_grid) # length of a grid
