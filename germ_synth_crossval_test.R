@@ -14,6 +14,10 @@ library(xtable)
 library(R.matlab)
 
 
+#okay wehn I'm doing standard error over units I'm getting some kind of missing data error for control unit 7. Then when we get to unit 8, it says that the 
+#treated unit is among controls.
+
+
 find_vweights <- function(d, pred, y, u, t, spec, i,j, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
   #d is the dataframe of the panel data
   #pred is a string of predictor variables
@@ -46,7 +50,7 @@ dataprep.out <-
     treatment.identifier = i,
     
     #I'm not sure what this does but I think it's just supposed to be -i
-    #controls.identifier = unique(d$index)[-7],
+    #oh I see what the problem is. We're taking a subset that is not the same as unique(d$index)...okay I need to fix that then
     controls.identifier = unique(d$index)[-j],
     
     time.predictors.prior = predyear0:predyear1,

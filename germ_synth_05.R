@@ -128,7 +128,7 @@ units_co <- c(1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16, 18, 19, 20, 21)
 std_err_i <- matrix(0, N - 1, T1)
 for (j in 1:(N - 1)) {
   i <- units_co[j]
-  cat('(Std. Error) Over Unit i =', toString(i), '\n')
+  cat('(Std. Error) Over Unit i =', toString(i,j), '\n')
   ## pick v by cross-validation
   # data setup for training model
   dataprep.out <-
