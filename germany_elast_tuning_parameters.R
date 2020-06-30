@@ -344,7 +344,7 @@ for (i in 2:N) {
   optimal_parameters[i-1,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
   
   # Fit elastic net
-  # Use same optimal alpha and lambda here
+  # Use new optimal alpha and lambda here
   V1 <- scale(Z1, scale = FALSE)
   V0 <- scale(Z0, scale = FALSE)
   fit <- glmnet(x = V0, y = V1,
@@ -360,28 +360,10 @@ for (i in 2:N) {
 std_err_i_c <- as.matrix(sqrt(apply(std_err_i_c, 2, mean))) # Sqrt of mean of all SSR is Std Err over units
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Over time
 s <- floor(T0 / 2) # Number of periods for Std Errs
 std_err_t_c <- matrix(0, s, 1) # Storage matrix 
+optimal_parameters_t <- matrix(0, s, 2)
 
 # Fix matrices for Y and X for time-varying standard errors
 Y1 <- as.matrix(Y[,1])
@@ -396,20 +378,80 @@ for (t in 1:s) {
   Z1 <- as.matrix(Z[c(1:(T0 - t)),1]) # Pretend intervention happens earlier
   Z0 <- as.matrix(Z[c(1:(T0 - t)),-1])
   
+  # Find optimal alpha and lambda in this iteration
+  err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
+  lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
+  
+  # new Y and Z matrix to make things easier
+  Z_temp <- cbind(Z1,Z0)
+
+  # Iteration
+  for (j in 1:na) { # Iterate over alpha points
+    a <- a_grid[j]
+    err <- matrix(0, nrow = N - 1, ncol = nlambda) # Matrix for storage of error terms for each control unit and all lambda values
+    for (l in 2:N) { # iterate over units
+      
+      # Determine matrices appropriately
+      Y1 <- as.matrix(Y[,l])
+      Y0 <- as.matrix(Y[,-c(1,l)])
+      Z1 <- as.matrix(Z_temp[,l])
+      Z0 <- as.matrix(Z_temp[,-c(1,l)])
+      X1 <- as.matrix(X[,l])
+      X0 <- as.matrix(X[,-c(1,l)])
+      Z1_tr <- Z1 # what does this stand for: tr??
+      Z0_tr <- Z0 # pre-treatment outcomes?
+      Z1_te <- as.matrix(Y1[-(1:(T0 - t)),]) # what does this stand for: te??
+      Z0_te <- as.matrix(Y0[-(1:(T0 - t)),]) # post treatment outcomes?
+      
+      # Fit elastic net -> on pre-treatment outcomes
+      V1 <- scale(Z1_tr, scale = FALSE)
+      V0 <- scale(Z0_tr, scale = FALSE)
+      fit <- glmnet(x = V0, y = V1,
+                    alpha = a,
+                    lambda = lambda_grid,
+                    standardize = FALSE,
+                    intercept = FALSE) # elastic net function: alpha = a and for all lambda points in lambda grid
+      w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
+      w <- w[-1,] # Delete intercept
+      int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
+      e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
+      err[l - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
+    }
+    
+    # Optimal lambda
+    #err <- apply(t(scale(t(err))), 2, mean)
+    err <- apply(err, 2, mean) # mean error over all control units
+    #ind_opt <- max(which(err <= min(err) + 1 * sd(err)))
+    ind_opt <- which.min(err) # Find lambda that minimizes error
+    err_alpha[j] <- err[ind_opt] # Save that error for this alpha
+    lambda_opt_alpha[j] <- lambda_grid[ind_opt] # Save the corresponding lambda value
+  }
+  
+  # After loop:
+  # Optimal a
+  ind_opt <- which.min(err_alpha) # Find alpha that minimizes error
+  a_opt_temp <- a_grid[ind_opt]
+  lambda_opt_temp <- lambda_opt_alpha[ind_opt] # Find associated lambda value
+  
+  optimal_parameters_t[t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
+  
+  
   # Fit elast: same optimal alpha and lambda
   V1 <- scale(Z1, scale = FALSE)
   V0 <- scale(Z0, scale = FALSE)
   fit <- glmnet(x = V0, y = V1,
-                alpha = a_opt,
+                alpha = a_opt_temp,
                 lambda = lambda_grid,
                 standardize = FALSE,
                 intercept = FALSE) # Fit with optimal alpha and over lambda grid
-  w <- as.matrix(coef(fit, s = lambda_opt)) # Save for optimal lambda only
+  w <- as.matrix(coef(fit, s = lambda_opt_temp)) # Save for optimal lambda only
   w <- w[-1,] # Delete intercept
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
   std_err_t_c[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point
 }
 std_err_t_c <- as.matrix(sqrt(apply(std_err_t_c, 2, mean)))
+
+
 
 # Over units and time
 std_err_it_c <- matrix(0, N - 1, 1)
@@ -422,6 +464,10 @@ for (i in 2:N) { # units
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-c(1,i)])
   
+  # new Y and Z matrix to make things easier
+  Y_temp <- cbind(Y1,Y0)
+  X_temp <- cbind(X1,X0)
+  
   std_err_temp <- matrix(0, s, 1) # Std Err for each number of varying periods
   
   for (t in 1:s) {
@@ -431,6 +477,64 @@ for (i in 2:N) { # units
     # Same time-varying Z, but now different unit treatment (i)
     Z1 <- as.matrix(Z[c(1:(T0 - t)),i])
     Z0 <- as.matrix(Z[c(1:(T0 - t)),-c(1,i)])
+    
+    # Find optimal alpha and lambda in this iteration
+    err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
+    lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
+    
+    # new Y and Z matrix to make things easier
+    Z_temp <- cbind(Z1,Z0)
+    
+    # Iteration
+    for (j in 1:na) { # Iterate over alpha points
+      a <- a_grid[j]
+      err <- matrix(0, nrow = N - 2, ncol = nlambda) # Matrix for storage of error terms for each control unit and all lambda values
+      for (l in 2:(N-1)) { # iterate over units
+        
+        # Determine matrices appropriately
+        Y1 <- as.matrix(Y[,l])
+        Y0 <- as.matrix(Y[,-c(1,l)])
+        Z1 <- as.matrix(Z_temp[,l])
+        Z0 <- as.matrix(Z_temp[,-c(1,l)])
+        X1 <- as.matrix(X[,l])
+        X0 <- as.matrix(X[,-c(1,l)])
+        Z1_tr <- Z1 # what does this stand for: tr??
+        Z0_tr <- Z0 # pre-treatment outcomes?
+        Z1_te <- as.matrix(Y1[-(1:(T0 - t)),]) # what does this stand for: te??
+        Z0_te <- as.matrix(Y0[-(1:(T0 - t)),]) # post treatment outcomes?
+        
+        # Fit elastic net -> on pre-treatment outcomes
+        V1 <- scale(Z1_tr, scale = FALSE)
+        V0 <- scale(Z0_tr, scale = FALSE)
+        fit <- glmnet(x = V0, y = V1,
+                      alpha = a,
+                      lambda = lambda_grid,
+                      standardize = FALSE,
+                      intercept = FALSE) # elastic net function: alpha = a and for all lambda points in lambda grid
+        w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
+        w <- w[-1,] # Delete intercept
+        int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
+        e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
+        err[l - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
+      }
+      
+      # Optimal lambda
+      #err <- apply(t(scale(t(err))), 2, mean)
+      err <- apply(err, 2, mean) # mean error over all control units
+      #ind_opt <- max(which(err <= min(err) + 1 * sd(err)))
+      ind_opt <- which.min(err) # Find lambda that minimizes error
+      err_alpha[j] <- err[ind_opt] # Save that error for this alpha
+      lambda_opt_alpha[j] <- lambda_grid[ind_opt] # Save the corresponding lambda value
+    }
+    
+    # After loop:
+    # Optimal a
+    ind_opt <- which.min(err_alpha) # Find alpha that minimizes error
+    a_opt_temp <- a_grid[ind_opt]
+    lambda_opt_temp <- lambda_opt_alpha[ind_opt] # Find associated lambda value
+    
+    optimal_parameters_it[t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
+    
     
     # Fit elastic net
     V1 <- scale(Z1, scale = FALSE)
