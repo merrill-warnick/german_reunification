@@ -10,6 +10,7 @@ library(glmnet)
 library(foreign)
 library(reshape2)
 library(R.matlab)
+library(Synth)
 
 ######################
 ####### DATA #########
@@ -194,10 +195,10 @@ V0 <- scale(Z0, scale = FALSE)
 fit <- glmnet(x = V0, y = V1,
               alpha = a_opt,
               lambda = lambda_grid,
-              standardize = FALSE,
+              standardize = FALSE, # Don't standardize
               intercept = FALSE) # Function to fit elastic net with optimal alpha over lambda grid
 w <- as.matrix(coef(fit, s = lambda_opt)) # only save coefficients for optimal lambda
-w <- w[-1,] # Delete intercept
+w <- w[-1,] # Delete intercept -> but deleted intercept before??
 int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean)) # Dimension: 1x1
 w_elast <- w # Elastic net weights for all 16 units
 Y_elast <- int_elast[rep(1, T),] + Y0 %*% w # Estimated Y (no treatment)
