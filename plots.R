@@ -12,3 +12,14 @@ legend("topleft",legend=c("Actual data","Difference-in-Differences"), col=c("red
 arrows(x0=1988, y0=32500, col=c("black"), lwd=2, xpd=TRUE)
 text(x=1986,y=32500,pos=4,label = "Reunification")
 box(which = "plot", bty = "l")
+
+### Standard Errors
+tau <- cbind(data$Y.true-data$Y.did) # cbind for each method
+std_err <- cbind(data$std.err.did.i)
+
+plot(1990:2003, tau, type = "l", lty = 1, ylim = c(0, 35000), xlim = c(1960,2003), col = "blue", main = "West Germany: Standard Errors", xlab = "Year", ylab = "", las = 1)
+lines(1990:2003, tau+1.96*std_err, lty = 2, col= "blue")
+lines(1990:2003, tau-1.96*std_err, lty = 2, col= "blue")
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +\-1.96*std.err."), col=c("blue","blue"),lty=c(1,2), ncol=1, bty = 'n')
+
+
