@@ -414,7 +414,7 @@ for (t in 1:s) {
       w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
       w <- w[-1,] # Delete intercept
       int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
-      e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
+      e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1+t),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
       err[l - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
     }
     
@@ -455,6 +455,7 @@ std_err_t_c <- as.matrix(sqrt(apply(std_err_t_c, 2, mean)))
 
 # Over units and time
 std_err_it_c <- matrix(0, N - 1, 1)
+optimal_parameters_it <- array(0, dim= c(N-1, s, 2))
 
 for (i in 2:N) { # units
   
@@ -492,12 +493,12 @@ for (i in 2:N) { # units
       for (l in 2:(N-1)) { # iterate over units
         
         # Determine matrices appropriately
-        Y1 <- as.matrix(Y[,l])
-        Y0 <- as.matrix(Y[,-c(1,l)])
+        Y1 <- as.matrix(Y_temp[,l])
+        Y0 <- as.matrix(Y_temp[,-c(1,l)])
         Z1 <- as.matrix(Z_temp[,l])
         Z0 <- as.matrix(Z_temp[,-c(1,l)])
-        X1 <- as.matrix(X[,l])
-        X0 <- as.matrix(X[,-c(1,l)])
+        X1 <- as.matrix(X_temp[,l])
+        X0 <- as.matrix(X_temp[,-c(1,l)])
         Z1_tr <- Z1 # what does this stand for: tr??
         Z0_tr <- Z0 # pre-treatment outcomes?
         Z1_te <- as.matrix(Y1[-(1:(T0 - t)),]) # what does this stand for: te??
@@ -514,7 +515,7 @@ for (i in 2:N) { # units
         w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
         w <- w[-1,] # Delete intercept
         int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
-        e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
+        e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1+t),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
         err[l - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
       }
       
@@ -533,18 +534,18 @@ for (i in 2:N) { # units
     a_opt_temp <- a_grid[ind_opt]
     lambda_opt_temp <- lambda_opt_alpha[ind_opt] # Find associated lambda value
     
-    optimal_parameters_it[t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
+    optimal_parameters_it[i-1,t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
     
     
     # Fit elastic net
     V1 <- scale(Z1, scale = FALSE)
     V0 <- scale(Z0, scale = FALSE)
     fit <- glmnet(x = V0, y = V1,
-                  alpha = a_opt,
+                  alpha = a_opt_temp,
                   lambda = lambda_grid,
                   standardize = FALSE,
                   intercept = FALSE) # Fit function same optimal alpha and lambda grid
-    w <- as.matrix(coef(fit, s = lambda_opt)) # Save coefficient only for optimal lambda
+    w <- as.matrix(coef(fit, s = lambda_opt_temp)) # Save coefficient only for optimal lambda
     w <- w[-1,] # Delete intercept
     int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
     std_err_temp[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point

@@ -198,7 +198,7 @@ fit <- glmnet(x = V0, y = V1,
               standardize = FALSE, # Don't standardize
               intercept = FALSE) # Function to fit elastic net with optimal alpha over lambda grid
 w <- as.matrix(coef(fit, s = lambda_opt)) # only save coefficients for optimal lambda
-w <- w[-1,] # Delete intercept -> but deleted intercept before??
+w <- w[-1,] # Delete intercept -> value is zero since "intercept = FALSE" in glmnet
 int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean)) # Dimension: 1x1
 w_elast <- w # Elastic net weights for all 16 units
 Y_elast <- int_elast[rep(1, T),] + Y0 %*% w # Estimated Y (no treatment)
