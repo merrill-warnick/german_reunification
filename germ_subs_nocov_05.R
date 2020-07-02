@@ -10,6 +10,7 @@ library(glmnet)
 library(foreign)
 library(reshape2)
 library(R.matlab)
+library(Synth)
 
 ######################
 ####### DATA #########
