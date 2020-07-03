@@ -20,17 +20,17 @@ abline(v = 1970, col = "grey96")
 abline(v = 1980, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 2000, col = "grey96")
-legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda,"and ",alpha,")" )),"Best subset (opt. k)", "Original synth."), col=c("red","yellow","purple4","orange","blue"),lty=c(1,1), ncol=1, bty = 'n', cex = 0.7)
+legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)", "Original synth."), col=c("red","yellow","purple4","orange","blue"),lty=c(2,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
 arrows(x0=1987, y0=32500,x1=1988, y1=32499, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
-text(x=1981.5,y=32500,pos=4,label = "Reunification", cex = 0.5)
+text(x=1981,y=32500,pos=4,label = "Reunification", cex = 0.5)
 
 ### Standard Errors
 tau <- cbind(data_did$Y.true[31:44]-data_synth$Y.synth[31:44],data_did$Y.true[31:44]-data_elast$Y.elast[31:44]) # cbind for each method
 std_err <- cbind(data_synth$std.err.synth.i, data_elast$std.err.elast.i)
 
 plot(1990:2003, tau[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1990,2003), col = "blue", main = "West Germany: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
-lines(1990:2003, tau[,1]+1.96*std_err[,1], lty = 2, col= "blue")
-lines(1990:2003, tau[,1]-1.96*std_err[,1], lty = 2, col= "blue")
+lines(1990:2003, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
+lines(1990:2003, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
 lines(1990:2003, tau[,2], lty = 1, col= "plum2")
 lines(1990:2003, tau[,2]+1.96*std_err[,2], lty = 2, col= "plum2")
 lines(1990:2003, tau[,2]-1.96*std_err[,2], lty = 2, col= "plum2")
@@ -49,8 +49,8 @@ tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data
 std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
 
 plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
-lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 2, col= "blue")
-lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 2, col= "blue")
+lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
+lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
 lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
 lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
 lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
@@ -67,4 +67,19 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 
 ## Weights
 weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)
-barplot(weights[,1], horiz = T, xlim = c(-1,1), xaxis = "Original Synthetic Control", names.arg = c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL"))
+barplot(weights[,1], horiz = T, xlim = c(-1,1), xlab = "Original Synthetic Control", names.arg = c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL"), col = "royalblue", las = 1, cex.axis = 0.8, cex.names = 0.8)
+box(which = "plot", lty = "solid",tck = -0.5)
+at_tick <- seq(0,16, by = 2)
+
+# Try 2
+library(ggplot2) 
+theme_set(theme_bw())
+
+control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL")
+weights_synth <- as.data.frame(cbind(control_names,weights[,3]))
+colnames(weights_synth) <- c("controls","w")
+weights_synth$w <- as.numeric(as.character(weights_synth$w))
+p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
+# +geom_text(aes(y = 0,
+#colour = "black"))
+p
