@@ -344,6 +344,7 @@ for (j in 1:(N - 1)) {
   std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
   std_err_it[j,1] <- std_err_temp
 }
+cat(toString(std_err_it))
 std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
 
 # Copy the standard errors
@@ -358,6 +359,10 @@ std_err_synth_it <- std_err_it
 
 ## pick v by cross-validation
 # data setup for training model (counterfactual)
+
+
+
+#okay so this works now and gives same results as the original, prolem in the counterfactual step i guess?
 
 #okay, what is this section doing?
 #tbh I'm not totally clear on what the counterfactual exercise is doing in the paper

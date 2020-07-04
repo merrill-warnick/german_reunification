@@ -7,6 +7,12 @@
 #this is all the code I need for it, so I just need to go through and make the argument general
 
 
+#there is something wrong with my code....so I need to work a bit harder on it I guess. I'm going to rerun the OG code once to make sure
+#that it gives the same stuff every time, but I guess that what I can do is redo this program, start from the ground up.
+#maybe I didn't notice small differences hanging around or something like that.
+
+#now I need to compartmentalize the rest of this
+
 rm(list=ls())
 library(foreign)
 library(Synth)
@@ -17,8 +23,12 @@ library(R.matlab)
 #okay wehn I'm doing standard error over units I'm getting some kind of missing data error for control unit 7. Then when we get to unit 8, it says that the 
 #treated unit is among controls.
 
+#idk if the default is gonna work
 
-find_vweights <- function(d, pred, y, u, t, spec, i,j, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
+#I think that we're going to need a bunch of different years parameters so in the root function you just input a years vector and then 
+#unpack within the if statements.
+
+find_vweights <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
   #d is the dataframe of the panel data
   #pred is a string of predictor variables
   #y is the string name of the dependent variable
@@ -28,10 +38,12 @@ find_vweights <- function(d, pred, y, u, t, spec, i,j, predyear0, predyear1, opt
   #  for the dataprep function
   #i is the index of the treatment identifier column
   #j helps with the index of the control identifier columns in case you need it
+  #cont_set is whatever the set of controls that you're picking out it
   #predyearX are the first and last years that you want to use as predictors
   #optyearX are the first and last years that you want to poptimize over for crossvalidation.
   #names is the column of name identifiers for the units
   #yearX is the first and last year that you want for time.plot
+  
 dataprep.out <-
   dataprep(
     
@@ -51,7 +63,7 @@ dataprep.out <-
     
     #I'm not sure what this does but I think it's just supposed to be -i
     #oh I see what the problem is. We're taking a subset that is not the same as unique(d$index)...okay I need to fix that then
-    controls.identifier = unique(d$index)[-j],
+    controls.identifier = cont_set[-j],
     
     time.predictors.prior = predyear0:predyear1,
     
@@ -76,11 +88,138 @@ output <- synth.out$solution.v
 
 
 
+find_ysynth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, vweight){
+
+dataprep.out <-
+  dataprep(
+    foo = d,
+    predictors    = pred,
+    dependent     = y,
+    unit.variable = u,
+    time.variable = t,
+    special.predictors = spec,
+    treatment.identifier = i,
+    controls.identifier = cont_set[-j],
+    
+    time.predictors.prior = predyear0:predyear1,
+    time.optimize.ssr = optyear0:optyear1,
+    unit.names.variable = names,
+    time.plot = year0:year1
+  )
 
 
+synth.out <- synth(
+  data.prep.obj=dataprep.out,
+  custom.v=as.numeric(vweight)
+)
+
+w <- synth.out$solution.w
+
+#okay so this doesn't quite concatenate like I want it to. It just lines things up onto on eline, but
+#I actually want it to have separate pieces. Do I put them in a list or something?
+#maybe I can use the year variables to make it work out? Easiest would be if I could store them like I want to.
+#I can try putting them in a list.
+output <- list(y1 = dataprep.out$Y1, ysynth = dataprep.out$Y0 %*% w, w = w)
+
+}
+
+#I think we just feed in ysynth and y1 and tell it the treatment year
+#won't work with multiple treated units, I guess we could figure that out later. I don't know what you're supposed to do with multiple
+#treated units anyway.
+find_treatment <- function(Y1, Ysynth, tyear){
+  
+  output <-Y1[tyear] - Ysynth[tyear]
+}
 
 
+#we could either tell it the number of units or just feed it in I'll just feed in for now.
+se_unit <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+  
+  T1<- T - T0
+  
+std_err_i <- matrix(0, N - 1, T1)
+for (j in 1:(N - 1)) {
+  i <- cont_set[j]
+  cat('(Std. Error) Over Unit i =', toString(i), '\n')
+  
+  vw <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+  
+  y_both <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4], names, years[5], years[6], vw)
+    
+  Y1 <- y_both$y1
+  Y_synth<-y_both$ysynth
+  
+  #I don't quite understand the indexing but I see what is going on here, I think.
+  std_err_i[j,] <- (Y1[-c(1:T0),] - Y_synth[-c(1:T0),]) ^ 2
+}
 
+std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+}
+
+se_time <- function(N, T, T0, d, pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
+  
+  s <- floor(T0 / 2)
+  std_err_t <- matrix(0, s, 1)
+  for (k in 1:s) {
+    cat('(Std. Error) Over Time t =', toString(k), '\n')
+    
+    vw <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+    
+    y_both <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, names, years[5], years[6], vw)
+    
+    Y1 <- y_both$y1
+    Y_synth<-y_both$ysynth
+    
+    
+    std_err_t[k,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
+  }
+  std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+}
+
+
+#hmmm should saving vweights be an option or something like that? We only need to do it for now....
+#i'll just keep it now then delete it later I guess.
+
+#something is going wrong in this one, we got the wrong values and the wrong vweights I think, meaning the vweights didn't even come out right
+
+
+se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+ 
+  s <- floor(T0 / 2)
+  #this is a magic number rn
+  vweights_it<-array(0, dim=c(N-1,s,6))
+  
+  std_err_it <- matrix(0, N - 1, 1)
+  for (j in 1:(N - 1)) {
+    i <- cont_set[j]
+    std_err_temp <- matrix(0, s, 1)
+    for (k in 1:s) {
+      cat('(Std. Error) Over Unit and Time ( i , t ) = (',toString(i), ',', 
+          toString(k), ')\n')
+      
+      vw <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+      
+      #save vweights so we can look at them
+      vweights_it[j,t,] <- as.matrix(vw)
+      
+      y_both <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4] - k, names, years[5], years[6], vw)
+      
+     
+      
+      # Solutions
+      Y1 <- y_both$y1
+      Y_synth<-y_both$ysynth
+      
+      std_err_temp[t,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
+    }
+    std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
+    std_err_it[j,1] <- std_err_temp
+  }
+  cat(toString(std_err_it))
+  std_err_it <- list(se = as.matrix(sqrt(apply(std_err_it, 2, mean))), vw = vweights_it)
+}
+
+#std_err_it is wrong I think
 
 ## Replication Code for
 # A. Abadie, A. Diamond, and J. Hainmueller. 2014.
@@ -96,57 +235,39 @@ d <- read.dta("repgermany.dta")
 cat('*** Main ***\n')
 
 
-special<-list(
+#I think that special is correct now, I think that we just plug it in to all the find_vweights.
+#it is different for main-mmodel stuff.
+cspecial<-list(
+  list("industry" ,1971:1980, c("mean")),
+  list("schooling",c(1970,1975), c("mean")),
+  list("invest70" ,1980, c("mean"))
+)
+
+special <- list(
   list("industry" ,1981:1990, c("mean")),
   list("schooling",c(1980,1985), c("mean")),
   list("invest80" ,1980, c("mean"))
 )
 
-#some change that we'll want to assign these differently later
-#I thin kthat the first thing to do before I start investigating is to make sure that it runs and gives the same results under
-#the new function
+cyears <-c(1971, 1980, 1981, 1990, 1960, 2003)
 
-#while it's running, I might as well work on a small function that generalizes the whole process I guess.
+years <- c(1981, 1990, 1960, 1989, 1960, 2003)
+
+predict<- c("gdp","trade","infrate")
+
 
 #vweights
-vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, 7,7, 1971, 1980, 1981, 1990, 2, 1960, 2003)
+vw <- find_vweights(d, predict, "gdp", 1, 3, cspecial, 7,7,unique(d$index), cyears[1],cyears[2],cyears[3], cyears[4], 2, cyears[5], cyears[6])
 
-# data prep for main model
-# why do we redo dataprep?
-dataprep.out <-
-  dataprep(
-    foo = d,
-    predictors    = c("gdp","trade","infrate"),
-    dependent     = "gdp",
-    unit.variable = 1,
-    time.variable = 3,
-    special.predictors = list(
-      list("industry" ,1981:1990, c("mean")),
-      list("schooling",c(1980,1985), c("mean")),
-      list("invest80" ,1980, c("mean"))
-    ),
-    treatment.identifier = 7,
-    controls.identifier = unique(d$index)[-7],
-    
-    #hmmmm why are the ten years before the only predictors but we optimize over all forty years?
-    time.predictors.prior = 1981:1990,
-    time.optimize.ssr = 1960:1989,
-    unit.names.variable = 2,
-    time.plot = 1960:2003
-  )
+y_out <- find_ysynth(d, predict, "gdp", 1, 3, special, 7,7,unique(d$index), years[1],years[2],years[3], years[4], 2, years[5], years[6], vw)
 
-# fit main model with v from training model
-#this gives us what our synthetic control is I think.
-synth.out <- synth(
-  data.prep.obj=dataprep.out,
-  #this is where we specify the vs that we got from the last piece
-  custom.v=as.numeric(vw)
-)
 
-#### Main results
-#this gives us our synthetic weights and our synthetic outcoms.
-w_synth <- synth.out$solution.w
-Y_synth <- dataprep.out$Y0 %*% w_synth
+w_synth <- y_out$w
+Y_synth <- y_out$ysynth
+Y1 <- y_out$y1
+
+teffect <- find_treatment(Y1, Y_synth, 6)
+
 
 ## Compute the standard errors
 #I think we're doing this by doing the counterfactual exercise over units--pretend that the wrong unit is the treated unit etc
@@ -160,160 +281,23 @@ units_co <- c(1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16, 18, 19, 20, 21)
 # will capture everything going on in the other parts.
 
 # Over units
-std_err_i <- matrix(0, N - 1, T1)
-for (j in 1:(N - 1)) {
-  i <- units_co[j]
-  cat('(Std. Error) Over Unit i =', toString(i), '\n')
-  ## pick v by cross-validation
-  # data setup for training model
-  
-  vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, i,j, 1971, 1980, 1981, 1990, 2, 1960, 2003)
-  
-  # data prep for main model
-  dataprep.out <-
-    dataprep(
-      foo = d,
-      predictors    = c("gdp","trade","infrate"),
-      dependent     = "gdp",
-      unit.variable = 1,
-      time.variable = 3,
-      special.predictors = list(
-        list("industry" ,1981:1990, c("mean")),
-        list("schooling",c(1980,1985), c("mean")),
-        list("invest80" ,1980, c("mean"))
-      ),
-      treatment.identifier = i,
-      controls.identifier = units_co[-j],
-      time.predictors.prior = 1981:1990,
-      time.optimize.ssr = 1960:1989,
-      unit.names.variable = 2,
-      time.plot = 1960:2003
-    )
-  
-  # fit main model with v from training model
-  synth.out <- synth(
-    data.prep.obj=dataprep.out,
-    custom.v=as.numeric(vw)
-  )
-  
-  # Solutions
-  w <- synth.out$solution.w
-  Y_pred <- dataprep.out$Y0 %*% w
-  Y1 <- dataprep.out$Y1
-  #I don't quite understand the indexing but I see what is going on here, I think.
-  std_err_i[j,] <- (Y1[-c(1:T0),] - Y_pred[-c(1:T0),]) ^ 2
-}
-std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+std_err_i <- se_unit(N, T, T0, d, predict, "gdp", 1, 3, cspecial, special, units_co, cyears, years, 2)
 
-# Over time
-#calculating standard errors again, but we're assigning treatment to the wrong year now.
-s <- floor(T0 / 2)
-std_err_t <- matrix(0, s, 1)
-for (t in 1:s) {
-  cat('(Std. Error) Over Time t =', toString(t), '\n')
-  ## pick v by cross-validation
-  # data setup for training model
-  
-  #question: why don't we change how we do crossvalidation when we change which year we're treating as treated? We need to change that I think.
-  vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, 7,7, 1971, 1980, 1981, 1990, 2, 1960, 2003)
-  
-  # data prep for main model
-  dataprep.out <-
-    dataprep(
-      foo = d,
-      predictors    = c("gdp","trade","infrate"),
-      dependent     = "gdp",
-      unit.variable = 1,
-      time.variable = 3,
-      special.predictors = list(
-        list("industry" ,1981:1990, c("mean")),
-        list("schooling",c(1980,1985), c("mean")),
-        list("invest80" ,1980, c("mean"))
-      ),
-      treatment.identifier = 7,
-      controls.identifier = unique(d$index)[-7],
-      #waaaait I see that we're optimizing over the right set of years, but why is the set of time predictors unchanged?
-      #I guess after reading the documentation I'm not 100% sure what time.predictors.prior is doing, and I'll need to talk to somebody about it I think.
-      time.predictors.prior = 1981:1990,
-      time.optimize.ssr = 1960:(1989 - t),
-      unit.names.variable = 2,
-      time.plot = 1960:2003
-    )
-  
-  # fit main model with v from training model
-  synth.out <- synth(
-    data.prep.obj=dataprep.out,
-    custom.v=as.numeric(vw)
-  )
-  
-  # Solutions
-  w <- synth.out$solution.w
-  Y_pred <- dataprep.out$Y0 %*% w
-  Y1 <- dataprep.out$Y1
-  std_err_t[t,1] <- (Y1[T0 - t + 1,] - Y_pred[T0 - t + 1,]) ^ 2
-}
-std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+std_err_t <- se_time(N, T, T0, d, predict, "gdp", 1, 3, cspecial, 7, 7,  special, units_co, cyears, years, 2)
 
-# Over units and time
+se_ut_output <- se_unit_time(N, T, T0, d, predict, "gdp", 1, 3, cspecial, special, units_co, cyears, years, 2)
 
-#need to save vweights
+#yeah after printing them, these are still much too small. i'll need to run small examples to test and figure out what the problem is.
+#It hinki'll do like three units with like the same nubmer of years each or something.
+std_err_it <- se_ut_output$se
+vweights <- se_ut_output$vw
 
-#not sure where we assign s
-#also not sure how big vw is oging to be
-vweights_it <-array(dim=c(N-1, s, length(vw)))
 
-std_err_it <- matrix(0, N - 1, 1)
-for (j in 1:(N - 1)) {
-  i <- units_co[j]
-  std_err_temp <- matrix(0, s, 1)
-  for (t in 1:s) {
-    cat('(Std. Error) Over Unit and Time ( i , t ) = (',toString(i), ',', 
-        toString(t), ')\n')
-    ## pick v by cross-validation
-    
-    #ohhhh I guess I need to think about i and j better real quick
-    vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, i, j, 1971, 1980, 1981, 1990, 2, 1960, 2003)
-    
-    #save vweights so we can look at them
-    vweights_it(i,t,) <- vw
-    
-    # data prep for main model
-    dataprep.out <-
-      dataprep(
-        foo = d,
-        predictors    = c("gdp","trade","infrate"),
-        dependent     = "gdp",
-        unit.variable = 1,
-        time.variable = 3,
-        special.predictors = list(
-          list("industry" ,1981:1990, c("mean")),
-          list("schooling",c(1980,1985), c("mean")),
-          list("invest80" ,1980, c("mean"))
-        ),
-        treatment.identifier = i,
-        controls.identifier = units_co[-j],
-        time.predictors.prior = 1981:1990,
-        time.optimize.ssr = 1960:(1989 - t),
-        unit.names.variable = 2,
-        time.plot = 1960:2003
-      )
-    
-    # fit main model with v from training model
-    synth.out <- synth(
-      data.prep.obj=dataprep.out,
-      custom.v=as.numeric(vw)
-    )
-    
-    # Solutions
-    w <- synth.out$solution.w
-    Y_pred <- dataprep.out$Y0 %*% w
-    Y1 <- dataprep.out$Y1
-    std_err_temp[t,1] <- (Y1[T0 - t + 1,] - Y_pred[T0 - t + 1,]) ^ 2
-  }
-  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
-  std_err_it[j,1] <- std_err_temp
-}
-std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+#I'll rewrite the counterfactual part later after this runs.
+#I think you just change the years or somethign
+
+
+
 
 # Copy the standard errors
 #gotta find where these standard errors show up in the paper. Hmmm it looks like they don't, I think that the
@@ -336,7 +320,7 @@ std_err_synth_it <- std_err_it
 
 cat('*** Counterfactual ***\n')
 
-vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, 7,7, 1971, 1980, 1981, 1990, 2, 1960, 2003)
+vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, 7,7,unique(d$index), 1971, 1980, 1981, 1990, 2, 1960, 2003)
 
 # data prep for main model
 dataprep.out <-
@@ -386,7 +370,7 @@ for (j in 1:(N - 1)) {
   ## pick v by cross-validation
   # data setup for training model
   
-  vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, i,j, 1971, 1980, 1981, 1990, 2, 1960, 2003)
+  vw <- find_vweights(d, c("gdp","trade","infrate"), "gdp", 1, 3, special, i,j,units_co, 1971, 1980, 1981, 1990, 2, 1960, 2003)
   
   # data prep for main model
   dataprep.out <-
