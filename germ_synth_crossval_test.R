@@ -210,7 +210,8 @@ se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyea
       Y1 <- y_both$y1
       Y_synth<-y_both$ysynth
       
-      std_err_temp[t,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
+      #fixed the big typo
+      std_err_temp[k,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
     }
     std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
     std_err_it[j,1] <- std_err_temp
