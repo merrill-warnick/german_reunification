@@ -163,6 +163,8 @@ lambda_opt <- lambda_opt_alpha[ind_opt] # Find associated lambda value
 
 # Over units
 std_err_i <- matrix(0, N - 1, T1) # Storage matrix
+coef_units <- matrix(0, N-1, N)
+
 for (i in 2:N) {
   cat('(Std. Error) Over Unit i =', toString(i), '\n')
   
@@ -186,13 +188,31 @@ for (i in 2:N) {
   w <- as.matrix(coef(fit, s = lambda_opt)) # Save coefficients for optimal lambda only
   w <- w[-1,]
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
+  if(i ==2){
+    coef_units[i-1,] <- c(int, 0,w)
+  }else{
+    if(i==N){
+      coef_units[i-1,] <- c(int, w,0)
+    }else{
+      coef_units[i-1,] <- c(int, w[1:(i-2)],0,w[(i-1):length(w)])
+    }
+  }
   std_err_i[i - 1,] <- (Y1[-c(1:T0),] - int[rep(1,T1),] - Y0[-c(1:T0),] %*% w) ^ 2 # Save SSR for each unit
 }
 std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean))) # Sqrt of mean of all SSR is Std Err over units
 
+# Y fit
+Y_fit <- matrix(0,N-1,14)
+for(i in 2:N){
+  Y0 <- as.matrix(Y[,-1])
+  Y_fit[i-1,] = t(coef_units[i-1,1]+Y0[-c(1:T0),] %*% coef_units[i-1,-1])
+}
+
 # Over time
 s <- floor(T0 / 2) # Number of periods for Std Errs
 std_err_t <- matrix(0, s, 1) # Storage matrix 
+coef_time <- matrix(0, s, N)
+
 
 # Fix matrices for Y and X for time-varying standard errors
 Y1 <- as.matrix(Y[,1])
@@ -218,9 +238,17 @@ for (t in 1:s) {
   w <- as.matrix(coef(fit, s = lambda_opt)) # Save for optimal lambda only
   w <- w[-1,] # Delete intercept
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
+  coef_time[t,] = c(int, w)
+  
   std_err_t[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point
 }
 std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+
+# Y fit
+Y_fit_time <- rep(0,s)
+for(t in 1:s){
+  Y_fit_time[t] = coef_time[t,1] + Y0[T0 - t + 1,] %*% coef_time[t,-1]
+}
 
 # Over units and time
 std_err_it <- matrix(0, N - 1, 1)
@@ -272,6 +300,7 @@ std_err_elast_it <- std_err_it
 
 # Over units
 std_err_i_c <- matrix(0, N - 1, T1) # Storage matrix
+coef_units <- matrix(0, N-1, N)
 optimal_parameters <- matrix(0, N-1, 2)
 for (i in 2:N) {
   cat('(Std. Error) Over Unit i =', toString(i), '\n')
@@ -343,6 +372,14 @@ for (i in 2:N) {
   
   optimal_parameters[i-1,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
   
+  # Define matrices appropriately
+  Y1 <- as.matrix(Y[,i])
+  Y0 <- as.matrix(Y[,-c(1,i)]) # also delete West Germany here
+  Z1 <- as.matrix(Z[,i])
+  Z0 <- as.matrix(Z[,-c(1,i)])
+  X1 <- as.matrix(X[,i])
+  X0 <- as.matrix(X[,-c(1,i)])
+  
   # Fit elastic net
   # Use new optimal alpha and lambda here
   V1 <- scale(Z1, scale = FALSE)
@@ -355,15 +392,31 @@ for (i in 2:N) {
   w <- as.matrix(coef(fit, s = lambda_opt_temp)) # Save coefficients for optimal lambda only
   w <- w[-1,]
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
+  if(i ==2){
+    coef_units[i-1,] <- c(int, 0,w)
+  }else{
+    if(i==N){
+      coef_units[i-1,] <- c(int, w,0)
+    }else{
+      coef_units[i-1,] <- c(int, w[1:(i-2)],0,w[(i-1):length(w)])
+    }
+  }
   std_err_i_c[i - 1,] <- (Y1[-c(1:T0),] - int[rep(1,T1),] - Y0[-c(1:T0),] %*% w) ^ 2 # Save SSR for each unit
 }
 std_err_i_c <- as.matrix(sqrt(apply(std_err_i_c, 2, mean))) # Sqrt of mean of all SSR is Std Err over units
 
+# Y fit
+Y_fit <- matrix(0,N-1,14)
+for(i in 2:N){
+  Y0 <- as.matrix(Y[,-1])
+  Y_fit[i-1,] = t(coef_units[i-1,1]+Y0[-c(1:T0),] %*% coef_units[i-1,-1])
+}
 
 # Over time
 s <- floor(T0 / 2) # Number of periods for Std Errs
 std_err_t_c <- matrix(0, s, 1) # Storage matrix 
 optimal_parameters_t <- matrix(0, s, 2)
+coef_time <- matrix(0, s, N)
 
 # Fix matrices for Y and X for time-varying standard errors
 Y1 <- as.matrix(Y[,1])
@@ -435,6 +488,16 @@ for (t in 1:s) {
   
   optimal_parameters_t[t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
   
+  # Fix matrices for Y and X for time-varying standard errors
+  Y1 <- as.matrix(Y[,1])
+  Y0 <- as.matrix(Y[,-1])
+  X1 <- as.matrix(X[,1])
+  X0 <- as.matrix(X[,-1])
+  
+  # Have varying Z matrices: Z = pre-treatment outcome over which MSPE to be minimized
+  Z1 <- as.matrix(Z[c(1:(T0 - t)),1]) # Pretend intervention happens earlier
+  Z0 <- as.matrix(Z[c(1:(T0 - t)),-1])
+  
   
   # Fit elast: same optimal alpha and lambda
   V1 <- scale(Z1, scale = FALSE)
@@ -447,11 +510,16 @@ for (t in 1:s) {
   w <- as.matrix(coef(fit, s = lambda_opt_temp)) # Save for optimal lambda only
   w <- w[-1,] # Delete intercept
   int <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean))
+  coef_time[t,] = c(int, w)
   std_err_t_c[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2 # Save SSR for each time point
 }
 std_err_t_c <- as.matrix(sqrt(apply(std_err_t_c, 2, mean)))
 
-
+# Y fit
+Y_fit_time <- rep(0,s)
+for(t in 1:s){
+  Y_fit_time[t] = coef_time[t,1] + Y0[T0 - t + 1,] %*% coef_time[t,-1]
+}
 
 # Over units and time
 std_err_it_c <- matrix(0, N - 1, 1)
@@ -536,6 +604,9 @@ for (i in 2:N) { # units
     
     optimal_parameters_it[i-1,t,] <- c(a_opt_temp, lambda_opt_temp) # Save optimal parameters for each unit
     
+    # Same time-varying Z, but now different unit treatment (i)
+    Z1 <- as.matrix(Z[c(1:(T0 - t)),i])
+    Z0 <- as.matrix(Z[c(1:(T0 - t)),-c(1,i)])
     
     # Fit elastic net
     V1 <- scale(Z1, scale = FALSE)
