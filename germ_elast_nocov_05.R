@@ -165,6 +165,11 @@ ind_opt <- which.min(err_alpha) # Find alpha that minimizes error
 a_opt <- a_grid[ind_opt]
 lambda_opt <- lambda_opt_alpha[ind_opt] # Find associated lambda value
 
+## Test function
+
+source('functions.R')
+output <- tuning_parameters_elastic_net(Y,Z,X,lambda_grid, a_grid, ind_treatment = 1)
+
 ###########################
 ####### Fit Model #########
 ###########################
@@ -203,6 +208,9 @@ int_elast <- as.matrix(apply(Z1 - Z0 %*% w, 2, mean)) # Dimension: 1x1
 w_elast <- w # Elastic net weights for all 16 units
 Y_elast <- int_elast[rep(1, T),] + Y0 %*% w # Estimated Y (no treatment)
 Y_true <- Y1
+
+## Test function
+output_2 <- find_weights_elastic_net(Y, Z, X, a_opt, lambda_opt, lambda_grid, ind_treatment= 1)
 
 #################################
 ####### Standard Errors #########

@@ -9,6 +9,7 @@ library(foreign)
 library(reshape2)
 library(R.matlab)
 library(Synth)
+library(modopt.matlab)
 
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment = 1){
   
@@ -240,7 +241,7 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   c <- matrix(1, nrow = T0, ncol = 1)
   
   # Fix treatment unit
-  i <- ind_indicator
+  i <- ind_treatment
   Y1 <- as.matrix(Y[,i])
   Y0 <- as.matrix(Y[,-i])
   Z1 <- as.matrix(Z[,i])
@@ -276,4 +277,52 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   
   # Output
   out <- list("intercept" = int, "weights" =w)
+}
+
+find_weights_contr_reg <- function(Y,Z,X,ind_treatment = 1){
+  ## INPUT:
+  #
+  # Y: matrix of outcome variables for treated unit and controls (Y1,Y0)
+  # Z: matrix of pre-treatment outcomes for treated unit and controls (Z1,Z0)
+  # X: matrix of covariates for treated unit and controls (X1,X0)
+  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  
+  ## OUTPUT:
+  #
+  # intercept: intercept resulting from constrained regression fit
+  # weights: weights resulting from constrained regression fit
+  
+  # Parameters
+  N <- dim(Y)[2] # Number of units
+  T <- dim(Y)[1] # Number of time periods
+  T0 <- dim(Z)[1] # Time of intervention
+  T1 <- T - T0 # Number of time periods after intervention
+  
+  # Matrices for storage
+  int <- matrix(0, nrow = 1, ncol = 1)
+  w <- matrix(0, nrow = N - 1, ncol = 1)
+  
+  # Fix treatment unit
+  i <- ind_treatment
+  Y1 <- as.matrix(Y[,i])
+  Y0 <- as.matrix(Y[,-i])
+  Z1 <- as.matrix(Z[,i])
+  Z0 <- as.matrix(Z[,-i])
+  X1 <- as.matrix(X[,i])
+  X0 <- as.matrix(X[,-i])
+  V1 <- scale(Z1, scale = FALSE)
+  V0 <- scale(Z0, scale = FALSE)
+  
+  # Fit constrained regression
+  H = t(V0)%*%V0
+  f = as.vector(-t(V0)%*%V1)
+  
+  Aeq = rep(1,N-1)
+  beq = 1
+  lb = rep(0, N-1)
+  ub = rep(1,N-1)
+  
+  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  
+  out <- list("intercept" = 0,"weights"= w$x)
 }

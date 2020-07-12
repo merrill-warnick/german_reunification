@@ -199,6 +199,13 @@ w_subs <- w[,j_opt]
 Y_subs <- int[rep(1, T),j_opt] + Y0 %*% w[,j_opt] # Estimated Y (no treatment)
 Y_true <- Y1
 
+
+### Test functions
+source('functions.R')
+output <- find_weights_subset(Y,Z,X)
+output_2 <- find_weights_contr_reg(Y,Z,X)
+
+
 #################################
 ####### Standard Errors #########
 #################################
