@@ -8,12 +8,16 @@ source('functions.R')
 ##############################
 ########## Dataprep ##########
 ##############################
+# Here or in general_estimate function??
 
 
 ###################################################
 ########## Estimates and Standard Errors ##########
 ###################################################
 
+# Get estimates and standard errors
+
+# Save matrices for future reference and plots
 
 ###########################
 ########## Plots ##########
@@ -97,6 +101,4 @@ weights_synth <- as.data.frame(cbind(control_names,weights[,3]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
 p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
-# +geom_text(aes(y = 0,
-#colour = "black"))
 p

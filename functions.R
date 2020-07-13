@@ -14,36 +14,82 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment){
+general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment =1){
+  
+  ## INPUT:
+  #
+  # data:
+  # method:
+  # lambda_grid: pre-specified lambda grid over which we are optimizing
+  # alpha_grid: pre-specified alpha grid over which we are optimizing
+  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  
+  ## OUTPUT:
+  #
+  # int: estimated intercept
+  # w: estimated weights
+  # Y_est: fitted Y values
+  # Y_true: true Y-values
+  # alpha_opt: optimal alpha (if method is elastic net)
+  # lambda_opt: optimal lambda (if method is elastic net)
+  # std_err_i: standard error over units
+  # std_err_t: standard error over time
+  # std_err_it: standard error over unit and time
+  # T_0: time point of intervention
+  # T_1: time points after intervention
   
   # Make sure that one of the methods that is feasible is specified
   if(is.null(method) | method != "diff_in_diff" | method != "elastic_net" | method != "constr_reg" | method != "synth" | method != "best_subset"){
     print('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
+    ####
     # Dataprep
     
+    ####
     # Get weights
     
-    # Get estimate
+    # Elastic Net: Find tuning parameter and weights
+    if(method == "elastic_net"){
+      params <- tuning_parameters_elastic_net(Y,Z,X,lambda_grid, alpha_grid, ind_treatment)
+      w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, lambda_grid, ind_treatment) 
+    }
     
+    # Best subset: Find weights
+    if(method == "best_subset"){
+      w <- find_weights_subset(Y,Z,X, ind_treatment)
+    }
+    
+    # Constrained regression: Find weights
+    if(method == "constr_reg"){
+      w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
+    }
+    
+    ###
+    # Get estimate
+    Y_est = w$intercept + Y0%*%w$weights
+    
+    ###
     # Get standard error
     
+    ###
     # Output
   }
 }
 
-# Auxiliary functions
+###############################
+##### Auxiliary functions #####
+###############################
 
-tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment = 1){
+tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment){
   
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls (Y1,Y0)
-  # Z: matrix of pre-treatment outcomes for treated unit and controls (Z1,Z0)
-  # X: matrix of covariates for treated unit and controls (X1,X0)
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls 
+  # X: matrix of covariates for treated unit and controls 
   # lambda_grid: pre-specified lambda grid over which we are optimizing
   # alpha_grid: pre-specified alpha grid over which we are optimizing
-  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # ind_treatment: indicator which unit is the treatment unit
   
   ## OUTPUT:
   #
@@ -60,6 +106,11 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
   lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
   
+  # Rearrange matrices to have treated unit first
+  Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
+  Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
+  X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
+  
   # LOOP:
   for (j in 1:na) { # Iterate over alpha points
     a <- alpha_grid[j]
@@ -68,11 +119,11 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
       
       # Determine matrices appropriately
       Y1 <- as.matrix(Y[,i])
-      Y0 <- as.matrix(Y[,-c(ind_treatment,i)])
+      Y0 <- as.matrix(Y[,-c(1,i)])
       Z1 <- as.matrix(Z[,i])
-      Z0 <- as.matrix(Z[,-c(ind_treatment,i)])
+      Z0 <- as.matrix(Z[,-c(1,i)])
       X1 <- as.matrix(X[,i])
-      X0 <- as.matrix(X[,-c(ind_treatment,i)])
+      X0 <- as.matrix(X[,-c(1,i)])
       Z1_tr <- Z1 # what does this stand for: tr??
       Z0_tr <- Z0 # pre-treatment outcomes?
       Z1_te <- as.matrix(Y1[-(1:T0),]) # what does this stand for: te??
@@ -110,17 +161,17 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   out <- list("alpha"= alpha_opt, "lambda"= lambda_opt)
 }
 
-find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment= 1){
+find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment){
   
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls (Y1,Y0)
-  # Z: matrix of pre-treatment outcomes for treated unit and controls (Z1,Z0)
-  # X: matrix of covariates for treated unit and controls (X1,X0)
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls 
+  # X: matrix of covariates for treated unit and controls 
   # alpha: optimal value for elastic fit alpha
   # lambda: optimal value for elastic fit lambda
   # lambda_grid: lambda_grid used to find optimal lambda -> faster fit if whole sequence of lambdas is fitted instead of single one
-  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # ind_treatment: indicator which unit is the treatment unit
   
   ## OUTPUT:
   #
@@ -165,14 +216,14 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   
 }
 
-find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
+find_weights_subset <- function(Y,Z,X,ind_treatment){
   
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls (Y1,Y0)
-  # Z: matrix of pre-treatment outcomes for treated unit and controls (Z1,Z0)
-  # X: matrix of covariates for treated unit and controls (X1,X0)
-  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls 
+  # X: matrix of covariates for treated unit and controls 
+  # ind_treatment: indicator which unit is the treatment unit
   
   ## OUTPUT:
   #
@@ -185,7 +236,7 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   T0 <- dim(Z)[1] # Time of intervention
   T1 <- T - T0 # Number of time periods after intervention
   T0_tr <- floor(T0 * 2 / 3) # what is this?? - here it is actually used
-  #T0_te <- T0 - T0_tr
+  
   
   # Normalize predictors
   div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
@@ -198,6 +249,11 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   #########################################
   ####### OPTIMAL UNITS IN SUBSET #########
   #########################################
+  
+  # Rearrange matrices to have treated unit first
+  Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
+  Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
+  X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
   
   ## Find the optimal subset #!!
   # Iterate over i
@@ -213,11 +269,11 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
     
     # Fix matrices 
     Y1 <- as.matrix(Y[,i])
-    Y0 <- as.matrix(Y[,-c(ind_treatment,i)]) 
+    Y0 <- as.matrix(Y[,-c(1,i)]) 
     Z1 <- as.matrix(Z[,i])
-    Z0 <- as.matrix(Z[,-c(ind_treatment,i)])
+    Z0 <- as.matrix(Z[,-c(1,i)])
     X1 <- as.matrix(X[,i])
-    X0 <- as.matrix(X[,-c(ind_treatment,i)])
+    X0 <- as.matrix(X[,-c(1,i)])
     Z1_tr <- as.matrix(Z1)
     Z0_tr <- as.matrix(Z0)
     Z1_te <- as.matrix(Y1[-(1:T0),])
@@ -264,7 +320,7 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   c <- matrix(1, nrow = T0, ncol = 1)
   
   # Fix treatment unit
-  i <- ind_treatment
+  i <- 1
   Y1 <- as.matrix(Y[,i])
   Y0 <- as.matrix(Y[,-i])
   Z1 <- as.matrix(Z[,i])
@@ -302,13 +358,13 @@ find_weights_subset <- function(Y,Z,X,ind_treatment = 1){
   out <- list("intercept" = int, "weights" =w)
 }
 
-find_weights_contr_reg <- function(Y,Z,X,ind_treatment = 1){
+find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls (Y1,Y0)
-  # Z: matrix of pre-treatment outcomes for treated unit and controls (Z1,Z0)
-  # X: matrix of covariates for treated unit and controls (X1,X0)
-  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls
+  # X: matrix of covariates for treated unit and controls 
+  # ind_treatment: indicator which unit is the treatment unit
   
   ## OUTPUT:
   #
