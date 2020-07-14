@@ -3,6 +3,7 @@ rm(list = ls())
 
 library(R.matlab)
 library(shape)
+library(ggplot2) 
 
 source('functions.R')
 
@@ -127,12 +128,6 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 
 ## Weights
 weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)
-barplot(weights[,1], horiz = T, xlim = c(-1,1), xlab = "Original Synthetic Control", names.arg = c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL"), col = "royalblue", las = 1, cex.axis = 0.8, cex.names = 0.8)
-box(which = "plot", lty = "solid",tck = -0.5)
-at_tick <- seq(0,16, by = 2)
-
-# Try 2
-library(ggplot2) 
 theme_set(theme_bw())
 
 control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL")
