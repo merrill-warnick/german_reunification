@@ -310,8 +310,8 @@ find_weights_contr_reg <- function(Y,Z,X,ind_treatment = 1){
   Z0 <- as.matrix(Z[,-i])
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-i])
-  V1 <- scale(Z1, scale = FALSE)
-  V0 <- scale(Z0, scale = FALSE)
+  V1 <- Z1
+  V0 <- Z0
   
   # Fit constrained regression
   H = t(V0)%*%V0
@@ -323,6 +323,6 @@ find_weights_contr_reg <- function(Y,Z,X,ind_treatment = 1){
   ub = rep(1,N-1)
   
   w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
-  
+  print(w$fval)
   out <- list("intercept" = 0,"weights"= w$x)
 }
