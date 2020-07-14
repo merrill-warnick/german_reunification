@@ -14,12 +14,12 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment =1){
+general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment = 1){
   
   ## INPUT:
   #
-  # data:
-  # method:
+  # data: specify whether just frame or already in X,Y,Z
+  # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"
   # lambda_grid: pre-specified lambda grid over which we are optimizing
   # alpha_grid: pre-specified alpha grid over which we are optimizing
   # ind_treatment: indicator which unit is the treatment unit; default is column 1
@@ -58,6 +58,7 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     # Best subset: Find weights
     if(method == "best_subset"){
       w <- find_weights_subset(Y,Z,X, ind_treatment)
+      n_opt <- sum(w$weights !=0)
     }
     
     # Constrained regression: Find weights
@@ -77,7 +78,11 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     if(method == "elastic_net"){
       out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
     }else{
-      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+      if(method == "best_subset"){
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+      }else{
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+      }
     }
   }
 }
@@ -189,9 +194,9 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   N <- dim(Y)[2] # Number of units
   
   # Normalize predictors
-  div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
-  X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
-  ## SKIP THIS IF NOT NEEDED!
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  ## ADD IF NEEDED
   
   # Matrices for storage
   int <- matrix(0, nrow = 1, ncol = 1)
@@ -246,8 +251,9 @@ find_weights_subset <- function(Y,Z,X,ind_treatment){
   
   
   # Normalize predictors
-  div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
-  X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  # Add back if needed!
   
   # Matrices for storage
   int <- matrix(0, nrow = 1, ncol = 1)
@@ -388,6 +394,11 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   int <- matrix(0, nrow = 1, ncol = 1)
   w <- matrix(0, nrow = N - 1, ncol = 1)
   
+  # Normalize predictors
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  # Add back if needed!
+  
   # Fix treatment unit
   i <- ind_treatment
   Y1 <- as.matrix(Y[,i])
@@ -396,7 +407,7 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   Z0 <- as.matrix(Z[,-i])
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-i])
-  V1 <- Z1round
+  V1 <- Z1
   V0 <- Z0
   
   # Fit constrained regression
