@@ -40,10 +40,11 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
   
   # Make sure that one of the methods that is feasible is specified
   if(is.null(method) | method != "diff_in_diff" | method != "elastic_net" | method != "constr_reg" | method != "synth" | method != "best_subset"){
-    print('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
+    stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     ####
     # Dataprep
+    # Here or before?
     
     ####
     # Get weights
@@ -73,8 +74,14 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     
     ###
     # Output
+    if(method == "elastic_net"){
+      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+    }else{
+      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+    }
   }
 }
+
 
 ###############################
 ##### Auxiliary functions #####
@@ -389,8 +396,8 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   Z0 <- as.matrix(Z[,-i])
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-i])
-  V1 <- scale(Z1, scale = FALSE)
-  V0 <- scale(Z0, scale = FALSE)
+  V1 <- Z1round
+  V0 <- Z0
   
   # Fit constrained regression
   H = t(V0)%*%V0

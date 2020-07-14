@@ -5,10 +5,11 @@ library(R.matlab)
 library(shape)
 
 source('functions.R')
+
 ##############################
 ########## Dataprep ##########
 ##############################
-# Here or in general_estimate function??
+# Here or in general_estimate function?? Tbd
 
 
 ###################################################
@@ -17,17 +18,55 @@ source('functions.R')
 
 # Get estimates and standard errors
 
+
+#################################
+########## Save Values ##########
+#################################
+
 # Save matrices for future reference and plots
+
+# Elastic Net 
+save(list = c("w", "int", "Y_est", "Y_true", 
+              "std_err_i", "std_err_t", "std_err_it"), 
+     file = "germ_elast_nocov.RData")
+writeMat("germ_elast_nocov.mat", 
+         w = w_elast, int = int_elast, 
+         Y_est = Y_est_elast, Y_true = Y_true, 
+         std_err_i = std_err_i_elast, 
+         std_err_t = std_err_t_elast, 
+         std_err_it = std_err_it_elast)
+
+# Best subset 
+save(list = c("w", "int", "Y_est", "Y_true", 
+              "std_err_i", "std_err_t", "std_err_it"), 
+     file = "germ_subs_nocov.RData")
+writeMat("germ_subs_nocov.mat", 
+         w = w_subs, int = int_subs, 
+         Y_est = Y_est_subs, Y_true = Y_true, 
+         std_err_i = std_err_i_subs, 
+         std_err_t = std_err_t_subs, 
+         std_err_it = std_err_it_subs)
+
+# Constrained regression
+save(list = c("w", "int", "Y_est", "Y_true", 
+              "std_err_i", "std_err_t", "std_err_it"), 
+     file = "germ_constr_reg_nocov.RData")
+writeMat("germ_constr_reg_nocov.mat", 
+         w = w_constr_reg, int = int_constr_reg, 
+         Y_est = Y_est_constr_reg, Y_true = Y_true, 
+         std_err_i = std_err_i_constr_reg, 
+         std_err_t = std_err_t_constr_reg, 
+         std_err_it = std_err_it_constr_reg)
 
 ###########################
 ########## Plots ##########
 ###########################
 
 ## Load data -> or can also simply call from before
-data_did <- readMat('germ_did_nocov_05.mat')
-data_elast <- readMat('germ_elast_nocov_05.mat')
-data_subset <- readMat('germ_subs_nocov_05.mat')
-data_synth <- readMat('germ_synth_05.mat')
+data_did <- readMat('germ_did_nocov.mat')
+data_elast <- readMat('germ_elast_nocov.mat')
+data_subset <- readMat('germ_subs_nocov.mat')
+data_synth <- readMat('germ_synth.mat')
 
 ### Treatment figure
 plot(1960:2003, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "West Germany: per capita GDP", xlab = "Year", ylab = "", las = 1, bty = 'L')
