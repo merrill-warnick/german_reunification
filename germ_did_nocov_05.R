@@ -97,8 +97,11 @@ int_did <- matrix(0, nrow = 1, ncol = 1)
 #constant weights
 w_did <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1)
 Y_did <- matrix(0, nrow = T, ncol = 1)
-Y_did <- matrix(0, nrow = T, ncol = 1)
+
 # West Germany
+
+#oh jk we rebound stuff to make this work like this.
+
 i <- 1
 Y1 <- as.matrix(Y[,i])
 Y0 <- as.matrix(Y[,-i])
@@ -113,6 +116,8 @@ w <- w_did
 #intercept? are the Zs just pretreatment periods? I guess I could check pretty easily. Yeah that's what they are  I think
 int_did <- as.matrix(mean(Z1) - mean(Z0))
 Y_did <- int_did[rep(1, T),] + Y0 %*% w
+
+
 Y_true <- Y1
 
 ## Compute the standard errors
@@ -128,10 +133,17 @@ for (i in 2:N) {
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-c(1,i)])
   
+  #cat(Z1)
+  
   # Fit did
   w <- matrix(1 / (N - 2), N - 2, 1)
+  
   int <- as.matrix(mean(Z1) - mean(Z0))
+  #cat(int)
+  #cat(int[rep(1, T1),] + Y0[-c(1:T0),] %*% w)
+  #cat(Y1)
   std_err_i[,i - 1] <- (Y1[-c(1:T0),] - int[rep(1, T1),] - Y0[-c(1:T0),] %*% w) ^ 2
+  
 }
 std_err_i <- as.matrix(sqrt(apply(std_err_i, 1, mean)))
 
@@ -148,6 +160,9 @@ for (t in 1:s) {
   
   # Fit did
   w <- matrix(1 / (N - 1), N - 1, 1)
+  
+  #is the intercept wrong here? The below makes it look like it should only be the mean of the pretreatment z periods...
+  #maybe the Zs are only the pretreatment periods anyway? Hmmmmm...I should ask and check I guess.
   int <- as.matrix(mean(Z1) - mean(Z0))
   std_err_t[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2
 }

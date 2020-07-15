@@ -28,6 +28,17 @@ library(R.matlab)
 #I think that we're going to need a bunch of different years parameters so in the root function you just input a years vector and then 
 #unpack within the if statements.
 
+
+#need to do something like this
+
+#hmmmm actually this might be kinda difficult...stacking these correctly requires that we have time and identifier columns anyway?
+#hmm. Okay I think that it's actually best if we just use this framework for this BUUUT I suppose we could think about what to do if somebody had
+#different data/just Y/X/Z...I am feeling like we just want to use this as-is tho.
+
+#df <- cbind(Y, Z, X)
+#ny <- dim(Y)
+
+
 find_vweights <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
   #d is the dataframe of the panel data
   #pred is a string of predictor variables
@@ -136,6 +147,8 @@ find_treatment <- function(Y1, Ysynth, tyear){
 se_unit <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
   
   T1<- T - T0
+
+#store vweights
   
 std_err_i <- matrix(0, N - 1, T1)
 for (j in 1:(N - 1)) {
@@ -156,10 +169,58 @@ for (j in 1:(N - 1)) {
 std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
 }
 
+
+#this version is both going to tell us how stable vweights are and tell us how different the standard errors are if 
+#we redraw v or not. That means we have to run it for the real treated unit first I guess.
+se_unit_checks <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+  
+  T1<- T - T0
+  #true version uses i=7, j=7
+  vw_true <- find_vweights(d, pred, y, u, t, cspec, 7,7,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+  
+  #store vweights
+  
+  std_err_i_old <- matrix(0, N - 1, T1)
+  std_err_i_new <- matrix(0, N - 1, T1)
+  vweights <- matrix(0, N - 1, 6)
+  for (j in 1:(N - 1)) {
+    i <- cont_set[j]
+    cat('(Std. Error) Over Unit i =', toString(j), '\n')
+    
+    vw <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+    vweights[j,] <- as.matrix(vw)
+    
+    y_both <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4], names, years[5], years[6], vw)
+    y_both_new <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4], names, years[5], years[6], vw_true)
+    
+    Y1 <- y_both$y1
+    Y_synth<-y_both$ysynth
+    
+    std_err_i_old[j,] <- (Y1[-c(1:T0),] - Y_synth[-c(1:T0),]) ^ 2
+    
+    Y1 <- y_both_new$y1
+    Y_synth<-y_both_new$ysynth
+    
+    std_err_i_new[j,] <- (Y1[-c(1:T0),] - Y_synth[-c(1:T0),]) ^ 2
+  }
+  
+  std_err_i_old <- as.matrix(sqrt(apply(std_err_i_old, 2, mean)))
+  std_err_i_new <- as.matrix(sqrt(apply(std_err_i_new, 2, mean)))
+  
+  output <- list(vw<-vweights, se_old<-std_err_i_old, se_new<-std_err_i_new)
+}
+
+
+
+#I guess we also want to see what happens to the standard error if we just plug in the old vw. I'll do that after these two things.
+
+
+
 se_time <- function(N, T, T0, d, pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
   
   s <- floor(T0 / 2)
   std_err_t <- matrix(0, s, 1)
+  vweights <- matrix(0,s,6)
   for (k in 1:s) {
     cat('(Std. Error) Over Time t =', toString(k), '\n')
     
@@ -177,6 +238,40 @@ se_time <- function(N, T, T0, d, pred, y, u, t, cspec,i,j, spec, cont_set, cyear
 }
 
 
+se_time_checks <- function(N, T, T0, d, pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
+  
+  s <- floor(T0 / 2)
+  vweights_old <- matrix(0, s, 6)
+  vweights_new <- matrix(0, s, 6)
+  std_err_t_old <- matrix(0, s, 1)
+  std_err_t_new <- matrix(0, s, 1)
+  for (k in 1:s) {
+    cat('(Std. Error) Over Time t =', toString(k), '\n')
+    
+    vw_old <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+    vw_new <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1]-k, cyears[2]-k, cyears[3]-k, cyears[4]-k, names, cyears[5], cyears[6])
+    
+    vweights_old[k, ] <- as.matrix(vw_old)
+    vweights_new[k, ] <- as.matrix(vw_new)
+    
+    y_both_old <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, names, years[5], years[6], vw_old)
+    y_both_new <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, names, years[5], years[6], vw_new)
+    
+    Y1 <- y_both_old$y1
+    Y_synth<-y_both_old$ysynth
+    std_err_t_old[k,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
+    
+    Y1 <- y_both_new$y1
+    Y_synth<-y_both_new$ysynth
+    std_err_t_new[k,1] <- (Y1[T0 - k + 1,] - Y_synth[T0 - k + 1,]) ^ 2
+  }
+  std_err_t_old <- as.matrix(sqrt(apply(std_err_t_old, 2, mean)))
+  std_err_t_new <- as.matrix(sqrt(apply(std_err_t_new, 2, mean)))
+  
+  output <- list(vw_old<-vweights_old, vw_new<-vweights_new, se_old<-std_err_t_old, se_new<-std_err_t_new) 
+}
+
+
 #hmmm should saving vweights be an option or something like that? We only need to do it for now....
 #i'll just keep it now then delete it later I guess.
 
@@ -187,7 +282,6 @@ se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyea
  
   s <- floor(T0 / 2)
   #this is a magic number rn
-  vweights_it<-array(0, dim=c(N-1,s,6))
   
   std_err_it <- matrix(0, N - 1, 1)
   for (j in 1:(N - 1)) {
@@ -199,12 +293,7 @@ se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyea
       
       vw <- find_vweights(d, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
       
-      #save vweights so we can look at them
-      vweights_it[j,t,] <- as.matrix(vw)
-      
       y_both <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4] - k, names, years[5], years[6], vw)
-      
-     
       
       # Solutions
       Y1 <- y_both$y1
@@ -216,11 +305,9 @@ se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyea
     std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
     std_err_it[j,1] <- std_err_temp
   }
-  cat(toString(std_err_it))
-  std_err_it <- list(se = as.matrix(sqrt(apply(std_err_it, 2, mean))), vw = vweights_it)
+  
+  std_err_it <-  as.matrix(sqrt(apply(std_err_it, 2, mean)))
 }
-
-#std_err_it is wrong I think
 
 ## Replication Code for
 # A. Abadie, A. Diamond, and J. Hainmueller. 2014.
@@ -235,9 +322,6 @@ d <- read.dta("repgermany.dta")
 
 cat('*** Main ***\n')
 
-
-#I think that special is correct now, I think that we just plug it in to all the find_vweights.
-#it is different for main-mmodel stuff.
 cspecial<-list(
   list("industry" ,1971:1980, c("mean")),
   list("schooling",c(1970,1975), c("mean")),
@@ -278,10 +362,12 @@ T0 <- 30
 T1 <- T - T0
 units_co <- c(1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 16, 18, 19, 20, 21)
 
-#need to save vweight results to think about them. Actually we only really need to do it for the unitsXtime one since it
-# will capture everything going on in the other parts.
+#so we don't have enough years to use this method going back. We have problems at 12 years, so let's set T=22.
 
-# Over units
+#units_check <- se_unit_checks(N, T, T0, d, predict, "gdp", 1, 3, cspecial, special, units_co, cyears, years, 2)
+
+#time_check <- se_time_checks(N, T, 22, d, predict, "gdp", 1, 3, cspecial, 7, 7,  special, units_co, cyears, years, 2)
+
 std_err_i <- se_unit(N, T, T0, d, predict, "gdp", 1, 3, cspecial, special, units_co, cyears, years, 2)
 
 std_err_t <- se_time(N, T, T0, d, predict, "gdp", 1, 3, cspecial, 7, 7,  special, units_co, cyears, years, 2)
