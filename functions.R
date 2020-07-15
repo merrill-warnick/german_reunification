@@ -23,6 +23,7 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
   # lambda_grid: pre-specified lambda grid over which we are optimizing
   # alpha_grid: pre-specified alpha grid over which we are optimizing
   # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # Are we going to make it so that the user doesn't have to plug in inputs for the methods they don't use?
   
   ## OUTPUT:
   #
@@ -45,6 +46,14 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     ####
     # Dataprep
     # Here or before?
+    # I think that doing it here makes sense? Doing it before would make the inputs nicer but I think it would make the synth/others differences easier to deal with
+    
+    #I guess this is one way we can pick out the data? Is there a way so that we can just plug Y, Z, X directly into the function or plug in the dataframe flexibly?
+    if(method!="synth"){
+      Y<- data$Y
+      Z<- data$Z
+      X<- data$X
+    }    
     
     ####
     # Get weights
@@ -55,10 +64,30 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, lambda_grid, ind_treatment) 
     }
     
+    #synthetic control: find tuning parameters and weights
+    if(method == "synth"){
+      #probably need to pick out parameters from a parameter list or something like that.
+      #hmmm it's also important to know that for this part we need to plug in the raw dataframe and not the dataprepped dataframe....
+      #yeah synth just has a lot of nasty extra parameters because we have to reuse the dataprep function several times.
+      #Here are some ideas:
+      #   rewrite it so that we pick out the parameter values inside the function. This might be less clear to readers what to plug in tho
+      #   write up a principled way to automatically figure out what the tuning years and the other years should be. Plausibly we could do this
+      #       if we knew which column was the time column and what year the treatment was in. Yeah actually, now that I think about it, we could
+      #       probably rewrite this to take in general Y Z X matrices without a time column and get fewer frills. I can play around with dataprep on 
+      #       my branch I guess to figure this out.
+      v <- tuning_parameters_synth(data, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1)
+      w <- find_weights_synth(data, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, v)
+    }
+    
     # Best subset: Find weights
     if(method == "best_subset"){
       w <- find_weights_subset(Y,Z,X, ind_treatment)
       n_opt <- sum(w$weights !=0)
+    }
+    
+    #Diff-in-diff: Find weights
+    if (method == "diff_in_diff"){
+      w <- find_weights_did(Y, Z, X, ind_treatment)
     }
     
     # Constrained regression: Find weights
@@ -91,6 +120,58 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
 ###############################
 ##### Auxiliary functions #####
 ###############################
+
+#I guess with the way that we're likely writing the prep_data function, it would probably make sense to 
+#just specify the treatment column as one for all subsequent functions. If prep_data is inside the function, this makes sense
+#but if it's outside the function we don't have to do it like that I think.
+#I guess for now I'll just put synth inside the function and leave this out until Lea and I meet.
+#I think that we should have like a "special parameters" input that lets you put in the method-specific parameters.
+#I thought about this more up above by the way.
+prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, year4, year5, year6, names, full ){
+  
+  dataprep.out <-
+    dataprep(
+      foo = d,
+      predictors    = pred,
+      dependent     = dep,
+      unit.variable = u,
+      time.variable = t,
+      special.predictors = spec,
+      treatment.identifier = i,
+      controls.identifier = subs[-j],
+      time.predictors.prior = year1:year2,
+      time.optimize.ssr = year3:year4,
+      unit.names.variable = names,
+      time.plot = year5:year6
+    )
+  
+  #######################################
+  if (full==FALSE){
+    #prepping the pieces
+    X0 <- dataprep.out$X0
+    X1 <- dataprep.out$X1
+    
+    Z1 <- dataprep.out$Z1
+    Z0 <- dataprep.out$Z0
+    
+    Y1 <- dataprep.out$Y1plot
+    Y0 <- dataprep.out$Y0plot
+    # [X1,X0]
+    X <- cbind(X1, X0)
+    
+    # [Y1,Y0]
+    Y <- cbind(Y1, Y0)
+    
+    # [Z1,Z0]
+    Z <- cbind(Z1, Z0)
+    
+    datlist <- list( x <- X, y <- Y, z <- Z)
+    names(datlist) <- c( "x", "y", "z")
+    output<-datlist
+  }
+  
+}
+
 
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment){
   
@@ -173,6 +254,64 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   out <- list("alpha"= alpha_opt, "lambda"= lambda_opt)
 }
 
+
+tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
+  #d is the dataframe of the panel data
+  #pred is a string of predictor variables
+  #y is the string name of the dependent variable
+  #u is the value of the unit identifier column
+  #t is the value of the time identifier column 
+  #spec is a list of special predictors that should be what you're plugging into special.predictors
+  #  for the dataprep function
+  #i is the index of the treatment identifier column
+  #j helps with the index of the control identifier columns in case you need it
+  #cont_set is whatever the set of controls that you're picking out it
+  #predyearX are the first and last years that you want to use as predictors
+  #optyearX are the first and last years that you want to poptimize over for crossvalidation.
+  #names is the column of name identifiers for the units
+  #yearX is the first and last year that you want for time.plot
+  
+  dataprep.out <-
+    dataprep(
+      
+      foo = d,
+      
+      predictors    = pred,
+      
+      dependent     = y,
+      
+      unit.variable = u,
+      
+      time.variable = t,
+      
+      special.predictors = spec,
+      
+      treatment.identifier = i,
+      
+      controls.identifier = cont_set[-j],
+      
+      time.predictors.prior = predyear0:predyear1,
+      
+      time.optimize.ssr = optyear0:optyear1,
+      
+      unit.names.variable = names,
+      
+      time.plot = year0:year1
+    )
+  
+  #fit training model to pull out vweights
+  synth.out <- 
+    synth(
+      data.prep.obj=dataprep.out,
+      
+      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
+    )
+  output <- synth.out$solution.v
+}
+
+
+
+
 find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment){
   
   ## INPUT:
@@ -227,6 +366,37 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   out <- list("intercept" = int, "weights" =w)
   
 }
+
+
+find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, vweight){
+  
+  dataprep.out <-
+    dataprep(
+      foo = d,
+      predictors    = pred,
+      dependent     = y,
+      unit.variable = u,
+      time.variable = t,
+      special.predictors = spec,
+      treatment.identifier = i,
+      controls.identifier = cont_set[-j],
+      
+      time.predictors.prior = predyear0:predyear1,
+      time.optimize.ssr = optyear0:optyear1,
+      unit.names.variable = names,
+      time.plot = year0:year1
+    )
+  
+  
+  synth.out <- synth(
+    data.prep.obj=dataprep.out,
+    custom.v=as.numeric(vweight)
+  )
+  
+  w <- synth.out$solution.w
+  out <- list("intercept" = 0, "weights" = w)
+}
+
 
 find_weights_subset <- function(Y,Z,X,ind_treatment){
   
@@ -370,6 +540,15 @@ find_weights_subset <- function(Y,Z,X,ind_treatment){
   # Output
   out <- list("intercept" = int, "weights" =w)
 }
+
+#find weights needs to spit out weights and an intercept
+find_weights_did <- function(Y, Z, X, ind_treatment){
+  N <- dim(Y)[2]
+  w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
+  int <- as.matrix(mean(Z[,ind_treatment]) - mean(Z[,-ind_treatment]))
+  out <- list("intercept" = int, "weights" = w)
+}
+
 
 find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   ## INPUT:
