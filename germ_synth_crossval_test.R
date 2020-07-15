@@ -270,7 +270,6 @@ se_time_checks <- function(N, T, T0, d, pred, y, u, t, cspec,i,j, spec, cont_set
 se_unit_time <- function(N, T, T0, d, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
  
   s <- floor(T0 / 2)
-  #this is a magic number rn
   
   std_err_it <- matrix(0, N - 1, 1)
   for (j in 1:(N - 1)) {
