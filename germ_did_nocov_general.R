@@ -22,7 +22,15 @@ library(Synth)
 #hmmm I might need to change how we do the other ones a little bit? for diff in diff it makes sense to do dataprep
 #beforehand but for synth it makes sense to do it within...I'll talk to Lea about it?
 
-prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, year4, year5, year6, names ){
+#prep data needs tochane anyway? I guess I can just deal with that right now as part of the restructure.
+
+#so prep data will just take in the data and spit out either the full structure to be used for synth or just Y X Z for other stuff
+#I gotta delve deeper and figure out what turns into Y and what turns into Z.
+#We might need to change this when we start adding covariates I guess?
+
+#actually now that I think about it, the output for prep data will be the same unless full = 1.
+
+prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, year4, year5, year6, names, full ){
   
   dataprep.out <-
     dataprep(
@@ -42,6 +50,11 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, 
   
   #######################################
   
+  #so I think that if full==FALSE, it willjust output the dataprep.out object.
+  #I guess that this will make it so that in our data, the true dataset will be in the first column.
+  #we should still write component functions to take in the input of which column is treated because that will be important to change
+  #when calculating standard errors.
+  if (full==FALSE){
   #prepping the pieces
   X0 <- dataprep.out$X0
   X1 <- dataprep.out$X1
@@ -64,57 +77,103 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, 
   names(datlist) <- c( "x", "y", "z")
   output<-datlist
   }
+  
+  }
 
-find_weights_did <- function(data){
-  N <- dim(data$y)[2]
+find_weights_did <- function(Y, Z, X){
+  N <- dim(Y)[2]
   w_did <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1)  
 }
 
 
-find_y_did <- function(data, weights, i ,T){
- 
-  int_did <- as.matrix(mean(data$z[,i]) - mean(data$z[,-i]))
+find_y_did <- function(Y, Z, X, weights, i ,T){
+  #cat(mean(Z[,i]))
+  int_did <- as.matrix(mean(Z[,i]) - mean(Z[,-i]))
   
-  Y_did <- int_did[rep(1, T),] + data$y[,-i] %*% weights
+  Y_did <- int_did[rep(1, T),] + Y[,-i] %*% weights
   output <- list(int <- int_did, Yhat <- Y_did)
   names(output) <- c("intercept", "Y_did")
   output<- output
 }
 
-find_treatment <- function(data, weights, T){
-  
-  treats <- data$Y1 - find_y_did(data, weights, T)
+find_treatment <- function(Y, Z, X, weights, i, T){
+  #I guess the treatment period is T0+1, but on second thought we just give thema ll the treatment effects
+  treats <- Y[,i] - find_y_did(Y, Z, X, weights, i, T)$Y_did
 }
 
-
-
-
-se_units_did <- function(data, T0, T, j){
+se_units_did <- function(Y, Z, X, i, T0, T){
   N <- dim(data$y)[2]
-
-  data_trunc <- list(y<-data$y[,-j], z<-data$z[,-j], x<-data$x[,-j])
-  names(data_trunc) <- c("y", "z", "x")
   
-  w <- find_weights_did(data_trunc)
+  Y_trunc <- Y[,-i]
+  Z_trunc <- Z[,-i]
+  X_trunc <- X[,-i]
+  
+  w <- find_weights_did(Y_trunc, Z_trunc, X_trunc)
 
   std_err_i <- matrix(0, T1, N - 1)
 
-  for (i in 1:(N-1)) {
-    Y1 <- as.matrix(data_trunc$y[,i])
-    y_did <- find_y_did(data_trunc, w, i, T)
-  
-    std_err_i[,i] <- (Y1[-c(1:T0),] - y_did$Y_did[-c(1:T0),]) ^ 2
+  for (j in 1:(N-1)) {
+    
+    y_did <- find_y_did(Y_trunc, Z_trunc, X_trunc, w, j ,T)
+    
+    std_err_i[,j] <- (Y_trunc[-c(1:T0),j] - y_did$Y_did[-c(1:T0),]) ^ 2
   
   }
 
   std_err_i <- as.matrix(sqrt(apply(std_err_i, 1, mean)))
 }
 
-#I can finish this at Chloey's I guess
-se_time_did <- function(data, T0, T, j){
-  
-  
 
+se_time_did <- function(Y, Z, X, i, T0, T){
+  
+  N <- dim(Y)[2]
+  w <- find_weights_did(Y, Z, X)
+  
+  # Over time
+  s <- floor(T0 / 2)
+  std_err_t <- matrix(0, s, 1)
+  
+  #cat(s)
+  for (t in 1:s) {
+    #
+    #okay so we should pass in truncated versions I think? I'm not sure actually, it seems a little weird, need to investigate.
+    #After looking at this again, the prep_data part makes it so that the Zs are only for pretreatment periods. That means that I guess that we 
+    #*do* want to just pass in the truncated Zs. Passing in the full Ys should be fine, evaluate Xs later.
+    # Fit did
+    
+    y_did <- find_y_did(Y, Z[c(1:(T0-t)),], X, w, i ,T)
+    
+    #I think that this will work
+    std_err_t[t,1] <- (Y[T0 - t + 1, i] - y_did$Y_did[T0 - t + 1,]) ^ 2
+  }
+  std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+
+}
+
+
+se_units_time_did <- function(Y, Z, X, i, T0, T){
+  N <- dim(Y)[2]
+  
+  s <- floor(T0 / 2)
+  std_err_it <- matrix(0, N - 1, 1)
+  
+  Y_trunc <- Y[,-i]
+  Z_trunc <- Z[,-i]
+  X_trunc <- X[,-i]
+  
+  w <- find_weights_did(Y_trunc, Z_trunc, X_trunc)
+  
+  for (j in 1:(N-1)){
+    std_err_temp <- matrix(0, s, 1)
+    for (t in 1:s){
+      y_did <- find_y_did(Y_trunc, Z_trunc[c(1:(T0-t)),], X_trunc, w, j ,T)
+      
+      std_err_temp[t,1] <- (Y_trunc[T0 - t + 1, j] - y_did$Y_did[T0 - t + 1,]) ^ 2
+    }
+    std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
+    std_err_it[j,1] <- std_err_temp
+  }
+  std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
 }
 
 ## Load the data
@@ -131,11 +190,12 @@ special = list(
 
 year <- c(1981, 1990, 1960, 1989, 1960, 2003)
   
-data <- prep_data(d, predictors, "gdp", 1, 3, special, 7, 7, unique(d$index), year[1], year[2], year[3], year[4], year[5], year[6], 2)
+data <- prep_data(d, predictors, "gdp", 1, 3, special, 7, 7, unique(d$index), year[1], year[2], year[3], year[4], year[5], year[6], 2, FALSE)
 
-#wait why can't i use dollar signs anymore?????
+Y <- data$y
+Z <- data$z
+X <- data$x
 
-#hmmmmm do we want to just write a function that finds parameters to plug into other functions? that might be useful.
 
 #number of covariates
 K <- dim(data$x)[1]
@@ -154,7 +214,7 @@ T1 <- T - T0
 T0_tr <- floor(T0 * 2 / 3)
 T0_te <- T0 - T0_tr
 
-w <- find_weights_did(data)
+w <- find_weights_did(Y, Z, X)
 
 #okay so the main difference between our y0 (from the dataprep i guess?) and their y0 is this one only goes back to 1989.
 #I guess that means we do ahve to use y instead. good to know.
@@ -162,81 +222,23 @@ w <- find_weights_did(data)
 #this bit is very different right now and we need tow work on it.
 
 #ask Lea why naming directly works sometimes but not other times.
-output <- find_y_did(data, w, 1, T)
+output <- find_y_did(Y, Z, X, w, 1, T)
 
 Y_did <- output$Y_did
+
+
 intercept <- output$intercept
 
-treatment <- find_treatment(data, w, T)
+treatment <- find_treatment(Y, Z, X, w, 1, T)
 
-std_err_i <- se_units_did(data, T0, T, 1)
+std_err_i <- se_units_did(Y, Z, X, 1, T0, T)
 
+std_err_t <- se_time_did(Y, Z, X, 1, T0, T)
 
+std_err_it <- se_units_time_did(Y, Z, X, 1, T0, T)
 
-
   
-  
-  
-  
-  
-  
-  
-std_err_i <- matrix(0, T1, N - 1)
-for (i in 2:N) {
-  Y1 <- as.matrix(Y[,i])
-  Y0 <- as.matrix(Y[,-c(1,i)])
-  Z1 <- as.matrix(Z[,i])
-  Z0 <- as.matrix(Z[,-c(1,i)])
-  X1 <- as.matrix(X[,i])
-  X0 <- as.matrix(X[,-c(1,i)])
-  
-  # Fit did
-  w <- matrix(1 / (N - 2), N - 2, 1)
-  int <- as.matrix(mean(Z1) - mean(Z0))
-  std_err_i[,i - 1] <- (Y1[-c(1:T0),] - int[rep(1, T1),] - Y0[-c(1:T0),] %*% w) ^ 2
-}
-std_err_i <- as.matrix(sqrt(apply(std_err_i, 1, mean)))
-
-# Over time
-s <- floor(T0 / 2)
-std_err_t <- matrix(0, s, 1)
-Y1 <- as.matrix(Y[,1])
-Y0 <- as.matrix(Y[,-1])
-X1 <- as.matrix(X[,1])
-X0 <- as.matrix(X[,-1])
-for (t in 1:s) {
-  Z1 <- as.matrix(Z[c(1:(T0 - t)),1])
-  Z0 <- as.matrix(Z[c(1:(T0 - t)),-1])
-  
-  # Fit did
-  w <- matrix(1 / (N - 1), N - 1, 1)
-  int <- as.matrix(mean(Z1) - mean(Z0))
-  std_err_t[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2
-}
-std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
-
-# Over units and time
-std_err_it <- matrix(0, N - 1, 1)
-for (i in 2:N) {
-  Y1 <- as.matrix(Y[,i])
-  Y0 <- as.matrix(Y[,-c(1,i)])
-  X1 <- as.matrix(X[,i])
-  X0 <- as.matrix(X[,-c(1,i)])
-  
-  std_err_temp <- matrix(0, s, 1)
-  for (t in 1:s) {
-    Z1 <- as.matrix(Z[c(1:(T0 - t)),i])
-    Z0 <- as.matrix(Z[c(1:(T0 - t)),-c(1,i)])
-    
-    # Fit did
-    w <- matrix(1 / (N - 2), N - 2, 1)
-    int <- as.matrix(mean(Z1) - mean(Z0))
-    std_err_temp[t,1] <- (Y1[T0 - t + 1,] - int - Y0[T0 - t + 1,] %*% w) ^ 2
-  }
-  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
-  std_err_it[i - 1,1] <- std_err_temp
-}
-std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+#okayt this all waorks. Need to figure out the next part I guess.
 
 # Copy the standard errors
 std_err_did_i <- std_err_i
