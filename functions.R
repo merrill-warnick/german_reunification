@@ -14,6 +14,7 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
+
 general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment = 1){
   
   ## INPUT:
@@ -75,6 +76,9 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
       #       if we knew which column was the time column and what year the treatment was in. Yeah actually, now that I think about it, we could
       #       probably rewrite this to take in general Y Z X matrices without a time column and get fewer frills. I can play around with dataprep on 
       #       my branch I guess to figure this out.
+      
+      spec <- spec_params[1]
+      
       v <- tuning_parameters_synth(data, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1)
       w <- find_weights_synth(data, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, v)
     }
