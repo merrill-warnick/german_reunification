@@ -602,3 +602,102 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   
   out <- list("intercept" = 0,"weights"= w$x)
 }
+
+#########################################################
+#########################################################
+# Std Error to be put into general function for elastic net, best_subset and constrained regression
+
+# Not sure if this works out...gotta try once done! Need to think about it still quickly if correct application with weights function
+# (e.g. matrices and indicator for treatment variable)
+
+# Over Units 
+N <- dim(Y)[2]
+T <- dim(Y)[1]
+T0 <- dim(Z)[1]
+T1 <- T-T0
+std_err_i <- matrix(0, N-1, T1)
+# Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
+Y <- Y[,-ind_treatment]
+Z <- Z[,-ind_treatment]
+X <- X[,-ind_treatment]
+
+for (i in 1:(N-1)) {
+    
+    # Find weights
+    if(method == "elastic_net"){
+      w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, i) 
+    }
+    if(method == "best_subset"){
+      w <- find_weights_subset(Y,Z,X, i)
+    }
+    if(method == "constr_reg"){
+      w <- find_weights_constr_reg(Y,Z,X, i)
+    }
+    # add other methods here
+    
+    # Get standard error
+    std_err_i[i,] <- (Y[-c(1:T0),i] - w$intercept - Y[-c(1:T0),-i] %*% w$weights) ^ 2
+}
+std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+
+# Over Time
+T0 <- dim(Z)[1]
+s <- floor(T0 / 2)
+std_err_t <- matrix(0, s, 1)
+
+for (t in 1:s) {
+
+  # Fix matrix to be according to time period
+  Z <- Z[c(1:(T0 - t)),]
+  
+  # Find weights
+  if(method == "elastic_net"){
+    w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment) 
+  }
+  if(method == "best_subset"){
+    w <- find_weights_subset(Y,Z,X, ind_treatment)
+  }
+  if(method == "constr_reg"){
+    w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
+  }
+  # add other methods here
+  
+  std_err_t[t,1] <- (Y[T0 - t + 1,ind_treatment] - w$intercept - Y[T0 - t + 1,-ind_treatment] %*% w$weights) ^ 2
+}
+std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+
+# Over Units and Time
+N <- dim(Y)[2]
+T0 <- dim(Z)[1]
+s <- floor(T0 / 2)
+std_err_it <- matrix(0, N - 1, 1)
+# Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
+Y <- Y[,-ind_treatment]
+Z <- Z[,-ind_treatment]
+X <- X[,-ind_treatment]
+
+for (i in 1:(N-1)) {
+  
+  std_err_temp <- matrix(0, s, 1)
+  for (t in 1:s) {
+    # Fix matrix to be according to time period
+    Z <- Z[c(1:(T0 - t)),]
+    
+    # Find weights
+    if(method == "elastic_net"){
+      w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, i) 
+    }
+    if(method == "best_subset"){
+      w <- find_weights_subset(Y,Z,X, i)
+    }
+    if(method == "constr_reg"){
+      w <- find_weights_constr_reg(Y,Z,X, i)
+    }
+    # add other methods here
+    
+    std_err_temp[t,1] <- (Y[T0 - t + 1,i] - w$intercept - Y[T0 - t + 1,-i] %*% w$weights) ^ 2
+  }
+  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
+  std_err_it[i,1] <- std_err_temp
+}
+std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
