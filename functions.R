@@ -253,6 +253,73 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
 }
 
 
+
+#find weights needs to spit out weights and an intercept
+find_weights_did <- function(Y, Z, X, ind_treatment){
+  N <- dim(Y)[2]
+  w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
+  int <- as.matrix(mean(Z[,ind_treatment]) - mean(Z[,-ind_treatment]))
+  out <- list("intercept" = int, "weights" = w)
+}
+
+
+find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
+  ## INPUT:
+  #
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls
+  # X: matrix of covariates for treated unit and controls 
+  # ind_treatment: indicator which unit is the treatment unit
+  
+  ## OUTPUT:
+  #
+  # intercept: intercept resulting from constrained regression fit
+  # weights: weights resulting from constrained regression fit
+  
+  # Parameters
+  N <- dim(Y)[2] # Number of units
+  T <- dim(Y)[1] # Number of time periods
+  T0 <- dim(Z)[1] # Time of intervention
+  T1 <- T - T0 # Number of time periods after intervention
+  
+  # Matrices for storage
+  int <- matrix(0, nrow = 1, ncol = 1)
+  w <- matrix(0, nrow = N - 1, ncol = 1)
+  
+  # Normalize predictors
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  # Add back if needed!
+  
+  # Fix treatment unit
+  i <- ind_treatment
+  Y1 <- as.matrix(Y[,i])
+  Y0 <- as.matrix(Y[,-i])
+  Z1 <- as.matrix(Z[,i])
+  Z0 <- as.matrix(Z[,-i])
+  X1 <- as.matrix(X[,i])
+  X0 <- as.matrix(X[,-i])
+  V1 <- Z1
+  V0 <- Z0
+  
+  # Fit constrained regression
+  H = t(V0)%*%V0
+  f = as.vector(-t(V0)%*%V1)
+  
+  Aeq = rep(1,N-1)
+  beq = 1
+  lb = rep(0, N-1)
+  ub = rep(1,N-1)
+  
+  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  
+  out <- list("intercept" = 0,"weights"= w$x)
+}
+
+#########################################################
+#########################################################
+# Std Error to be put into general function for elastic net, best_subset and constrained regression
+
 tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
   
   ## INPUT:
@@ -286,14 +353,14 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
   
   ## Find the optimal subset #!!
   # Iterate over i
-    
+  
   # Still figure out what is going on here!!
   n_max <- N - 1 # Number of units in subset ?
   n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # What is this grid?? Why N-2 and N-1?
   nn <- length(n_grid) # Number of points in n grid
   err <- matrix(0, nrow = N - 1, ncol = nn) # Storage for errors for each unit and n
   c <- matrix(1, nrow = T0, ncol = 1) # Just a constant! Needed for fit here later
-    
+  
   for (i in 2:N) { # over units
     
     # Fix matrices 
@@ -307,7 +374,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
     Z0_tr <- as.matrix(Z0)
     Z1_te <- as.matrix(Y1[-(1:T0),])
     Z0_te <- as.matrix(Y0[-(1:T0),])
-      
+    
     # Fit the best-subset model
     V1 <- Z1_tr
     
@@ -336,7 +403,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
   err <- apply(t(scale(t(err))), 2, mean) # Get average error over all units
   ind_opt <- which.min(err)
   n_opt <- n_grid[ind_opt]
-
+  
   return(n_opt)
 }
 
@@ -424,72 +491,6 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment){
   # Output
   out <- list("intercept" = int, "weights" =w)
 }
-
-#find weights needs to spit out weights and an intercept
-find_weights_did <- function(Y, Z, X, ind_treatment){
-  N <- dim(Y)[2]
-  w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
-  int <- as.matrix(mean(Z[,ind_treatment]) - mean(Z[,-ind_treatment]))
-  out <- list("intercept" = int, "weights" = w)
-}
-
-
-find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
-  ## INPUT:
-  #
-  # Y: matrix of outcome variables for treated unit and controls 
-  # Z: matrix of pre-treatment outcomes for treated unit and controls
-  # X: matrix of covariates for treated unit and controls 
-  # ind_treatment: indicator which unit is the treatment unit
-  
-  ## OUTPUT:
-  #
-  # intercept: intercept resulting from constrained regression fit
-  # weights: weights resulting from constrained regression fit
-  
-  # Parameters
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
-  T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
-  
-  # Matrices for storage
-  int <- matrix(0, nrow = 1, ncol = 1)
-  w <- matrix(0, nrow = N - 1, ncol = 1)
-  
-  # Normalize predictors
-  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
-  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
-  # Add back if needed!
-  
-  # Fix treatment unit
-  i <- ind_treatment
-  Y1 <- as.matrix(Y[,i])
-  Y0 <- as.matrix(Y[,-i])
-  Z1 <- as.matrix(Z[,i])
-  Z0 <- as.matrix(Z[,-i])
-  X1 <- as.matrix(X[,i])
-  X0 <- as.matrix(X[,-i])
-  V1 <- Z1
-  V0 <- Z0
-  
-  # Fit constrained regression
-  H = t(V0)%*%V0
-  f = as.vector(-t(V0)%*%V1)
-  
-  Aeq = rep(1,N-1)
-  beq = 1
-  lb = rep(0, N-1)
-  ub = rep(1,N-1)
-  
-  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
-  
-  out <- list("intercept" = 0,"weights"= w$x)
-}
-
-#########################################################
-#########################################################
-# Std Error to be put into general function for elastic net, best_subset and constrained regression
 
 se_unit <- function(Y,Z,X, method, alpha= NULL, lambda= NULL, n_opt = NULL, ind_treatment=1){
   # Over Units 
