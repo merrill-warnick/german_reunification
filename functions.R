@@ -14,7 +14,7 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_treatment = 1){
+general_estimate <- function(data, method = NULL, prep_params, special_params = NULL, ind_treatment = 1){
   
   ## INPUT:
   #
@@ -23,6 +23,13 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
   # lambda_grid: pre-specified lambda grid over which we are optimizing
   # alpha_grid: pre-specified alpha grid over which we are optimizing
   # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  
+  #prep parameters is the vector for data prep
+  
+  # I think I'll change it so that we have a special_parameters input?
+  #then it will have lambda_grid/alpha_grid and all of the parameters for synth
+  #but it's null by default?
+  
   # Are we going to make it so that the user doesn't have to plug in inputs for the methods they don't use?
   
   ## OUTPUT:
@@ -48,8 +55,12 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     # Here or before?
     # I think that doing it here makes sense? Doing it before would make the inputs nicer but I think it would make the synth/others differences easier to deal with
     
-    #I guess this is one way we can pick out the data? Is there a way so that we can just plug Y, Z, X directly into the function or plug in the dataframe flexibly?
+    #wait I lied. We do all the dataprep stuff INSIDE synth so actually we don't want to do any dataprep if we're doing synth
+    
+    #for all of these prep_data parameters...how do we want to pass them into the function?
+    #do we want to make it so that we don't have to do a dataframe with named columns? We can worry about that later I guess
     if(method!="synth"){
+      data <- prep_data(data, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
       Y<- data$Y
       Z<- data$Z
       X<- data$X
@@ -60,7 +71,7 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
     
     # Elastic Net: Find tuning parameter and weights
     if(method == "elastic_net"){
-      params <- tuning_parameters_elastic_net(Y,Z,X,lambda_grid, alpha_grid, ind_treatment)
+      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[1], special_params[2], ind_treatment)
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, lambda_grid, ind_treatment) 
     }
     
@@ -75,8 +86,17 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
       #       if we knew which column was the time column and what year the treatment was in. Yeah actually, now that I think about it, we could
       #       probably rewrite this to take in general Y Z X matrices without a time column and get fewer frills. I can play around with dataprep on 
       #       my branch I guess to figure this out.
-      v <- tuning_parameters_synth(data, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1)
-      w <- find_weights_synth(data, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, v)
+      
+      #I should rewrite these a bit/think harder about it.
+      #or at least write it so that it can take a general parameter set or something like that?
+      
+      #realistically, it seems very annoying to use the special parameter vector...maybe I should do the picking out of the vector inside the function?
+      #maybe actually I should pass in like "shared parameters", "v parameters" and "w parameters".
+      # Another thing to think about is that we should probably think about a way to automatically figure out what the years should be from T, T1, T0 or whatever
+      #maybe we split it up into index_parameters/time_parameters/other_parameters? idk. and i guess that some of these are actually names for columns, right? hmmmm
+      
+      v <- tuning_parameters_synth(data, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1,  year0, year1, names)
+      w <- find_weights_synth(data, pred, y, u, t, spec, ind_treament, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names, v, FALSE)
     }
     
     # Best subset: Find weights
@@ -117,6 +137,8 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
 }
 
 
+
+
 ###############################
 ##### Auxiliary functions #####
 ###############################
@@ -127,7 +149,7 @@ general_estimate <- function(data, method = NULL, lambda_grid, alpha_grid, ind_t
 #I guess for now I'll just put synth inside the function and leave this out until Lea and I meet.
 #I think that we should have like a "special parameters" input that lets you put in the method-specific parameters.
 #I thought about this more up above by the way.
-prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, year4, year5, year6, names, full ){
+prep_data <- function(d, full, pred, dep, u, t, spec,i, j, subs, years, names){
   
   dataprep.out <-
     dataprep(
@@ -139,10 +161,10 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, year1, year2, year3, 
       special.predictors = spec,
       treatment.identifier = i,
       controls.identifier = subs[-j],
-      time.predictors.prior = year1:year2,
-      time.optimize.ssr = year3:year4,
+      time.predictors.prior = years[1]:years[2],
+      time.optimize.ssr = years[3]:years[4],
       unit.names.variable = names,
-      time.plot = year5:year6
+      time.plot = years[5]:years[6]
     )
   
   #######################################
@@ -255,7 +277,7 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
 }
 
 
-tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1){
+tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names){
   #d is the dataframe of the panel data
   #pred is a string of predictor variables
   #y is the string name of the dependent variable
@@ -368,7 +390,7 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
 }
 
 
-find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, vweight){
+find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, names, vweight, yinclude){
   
   dataprep.out <-
     dataprep(
@@ -395,6 +417,9 @@ find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0,
   
   w <- synth.out$solution.w
   out <- list("intercept" = 0, "weights" = w)
+  if(yinclude==TRUE){
+    out<- list("intercept" = 0, "weights" = w, "Y1"<-dataprep.out$Y1, "Y0"<-dataprep.out$Y0)
+  }
 }
 
 
@@ -610,6 +635,22 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
 # Not sure if this works out...gotta try once done! Need to think about it still quickly if correct application with weights function
 # (e.g. matrices and indicator for treatment variable)
 
+#I added diff in diff to the standard error function
+
+#to put synth in the general function it could look something like this 
+
+#standard_errors <- function(data, params){
+#run prep_data to pick out parameters
+#if(method==synth){
+#se <- specific synth funciton
+#}
+#else{
+#
+#
+#put in the code from below
+#}
+#}
+
 # Over Units 
 N <- dim(Y)[2]
 T <- dim(Y)[1]
@@ -633,7 +674,9 @@ for (i in 1:(N-1)) {
     if(method == "constr_reg"){
       w <- find_weights_constr_reg(Y,Z,X, i)
     }
-    # add other methods here
+    if(method == "diff_in_diff"){
+      w <- find_weights_did(Y,Z,X, i)
+    }
     
     # Get standard error
     std_err_i[i,] <- (Y[-c(1:T0),i] - w$intercept - Y[-c(1:T0),-i] %*% w$weights) ^ 2
@@ -660,7 +703,9 @@ for (t in 1:s) {
   if(method == "constr_reg"){
     w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
   }
-  # add other methods here
+  if(method == "diff_in_diff"){
+    w <- find_weights_did(Y,Z,X, i)
+  }
   
   std_err_t[t,1] <- (Y[T0 - t + 1,ind_treatment] - w$intercept - Y[T0 - t + 1,-ind_treatment] %*% w$weights) ^ 2
 }
@@ -693,7 +738,9 @@ for (i in 1:(N-1)) {
     if(method == "constr_reg"){
       w <- find_weights_constr_reg(Y,Z,X, i)
     }
-    # add other methods here
+    if(method == "diff_in_diff"){
+      w <- find_weights_did(Y,Z,X, i)
+    }
     
     std_err_temp[t,1] <- (Y[T0 - t + 1,i] - w$intercept - Y[T0 - t + 1,-i] %*% w$weights) ^ 2
   }
@@ -701,3 +748,82 @@ for (i in 1:(N-1)) {
   std_err_it[i,1] <- std_err_temp
 }
 std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+
+
+
+
+
+
+
+
+
+#############Synth standard error functions#######################
+
+N <- dim(Y)[2]
+T <- dim(Y)[1]
+T0 <- dim(Z)[1]
+T1 <- T-T0
+
+#need to think about inputting the right parameters, or where we should be doing that rather.
+#probably just have a parameter vector? We can worry aobut this a bit later.
+
+se_unit_synth <- function(data, N, T, T0, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+  
+  T1<- T - T0
+  
+  std_err_i <- matrix(0, N - 1, T1)
+  for (j in 1:(N - 1)) {
+    i <- cont_set[j]
+    vw <- tuning_parameters_synth(data, pred, y, u, t, cspec, i,j,cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6])
+   
+    w <- find_weights_synth(data, pred, y, u, t, spec, i, j, cont_set, years[1], years[2], years[3], years[4], years[5], years[6], names, vw, TRUE)
+    
+    std_err_i[j,] <- (w$Y1[-c(1:T0),] - w$intercept - w$Y0[-c(1:T0),] %*% w$weights) ^ 2
+  }
+  
+  std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+}
+
+
+
+se_time <- function(data, N, T, T0,  pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
+  
+  s <- floor(T0 / 2)
+  std_err_t <- matrix(0, s, 1)
+  vweights <- matrix(0,s,6)
+  for (k in 1:s) {
+    cat('(Std. Error) Over Time t =', toString(k), '\n')
+    
+    vw <- find_vweights(data, pred, y, u, t, cspec, i, j, cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6],names)
+    
+    w <- find_ysynth(data, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, years[5], years[6],names, vw, TRUE)
+    
+    std_err_t[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
+  }
+  std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+}
+
+
+
+se_unit_time <- function(d, N, T, T0, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+  
+  s <- floor(T0 / 2)
+  
+  std_err_it <- matrix(0, N - 1, 1)
+  for (j in 1:(N - 1)) {
+    i <- cont_set[j]
+    std_err_temp <- matrix(0, s, 1)
+    for (k in 1:s) {
+      
+      vw <- find_vweights(d, pred, y, u, t, cspec, i,j, cont_set, cyears[1], cyears[2], cyears[3], cyears[4], cyears[5], cyears[6], names)
+      
+      w <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4] - k, years[5], years[6], names, vw, TRUE)
+      
+      std_err_temp[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
+    }
+    std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
+    std_err_it[j,1] <- std_err_temp
+  }
+  
+  std_err_it <-  as.matrix(sqrt(apply(std_err_it, 2, mean)))
+}
