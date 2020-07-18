@@ -201,9 +201,18 @@ Y_true <- Y1
 
 
 ### Test functions
+X_r <- cbind(X0[,1], X1,X0[,-1])
+
+# [Y1,Y0]
+Y_r <- cbind(Y0[,1], Y1,Y0[,-1])
+
+# [Z1,Z0]
+Z_r <- cbind(Z0[,1], Z1,Z0[,-1])
+
+
 source('functions.R')
-output <- find_weights_subset(Y,Z,X)
-output_2 <- find_weights_contr_reg(Y,Z,X)
+output <- find_weights_subset(Y_r,Z_r,X_r, ind_treatment = 2)
+output_2 <- find_weights_constr_reg(Y_r,Z_r,X_r, ind_treatment = 2)
 
 
 #################################
