@@ -101,8 +101,8 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
     
     # Best subset: Find weights
     if(method == "best_subset"){
-      w <- find_weights_subset(Y,Z,X, ind_treatment)
-      n_opt <- sum(w$weights !=0)
+      n_opt <- tuning_parameters_best_subset(Y,Z,X,ind_treatment)
+      w <- find_weights_subset(Y,Z,X,n_opt,ind_treatment)
     }
     
     #Diff-in-diff: Find weights
@@ -276,6 +276,93 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   out <- list("alpha"= alpha_opt, "lambda"= lambda_opt)
 }
 
+tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
+  
+  ## INPUT:
+  #
+  # Y: matrix of outcome variables for treated unit and controls 
+  # Z: matrix of pre-treatment outcomes for treated unit and controls 
+  # X: matrix of covariates for treated unit and controls 
+  # ind_treatment: indicator which unit is the treatment unit
+  
+  ## OUTPUT:
+  #
+  # n_opt: optimal number of units in subset
+  
+  # Parameters
+  N <- dim(Y)[2] # Number of units
+  T <- dim(Y)[1] # Number of time periods
+  T0 <- dim(Z)[1] # Time of intervention
+  T1 <- T - T0 # Number of time periods after intervention
+  T0_tr <- floor(T0 * 2 / 3) # what is this?? - here it is actually used
+  
+  
+  # Normalize predictors
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  # Add back if needed!
+  
+  # Rearrange matrices to have treated unit first
+  Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
+  Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
+  X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
+  
+  ## Find the optimal subset #!!
+  # Iterate over i
+  
+  # Still figure out what is going on here!!
+  n_max <- N - 1 # Number of units in subset ?
+  n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # What is this grid?? Why N-2 and N-1?
+  nn <- length(n_grid) # Number of points in n grid
+  err <- matrix(0, nrow = N - 1, ncol = nn) # Storage for errors for each unit and n
+  c <- matrix(1, nrow = T0, ncol = 1) # Just a constant! Needed for fit here later
+  
+  for (i in 2:N) { # over units
+    
+    # Fix matrices 
+    Y1 <- as.matrix(Y[,i])
+    Y0 <- as.matrix(Y[,-c(1,i)]) 
+    Z1 <- as.matrix(Z[,i])
+    Z0 <- as.matrix(Z[,-c(1,i)])
+    X1 <- as.matrix(X[,i])
+    X0 <- as.matrix(X[,-c(1,i)])
+    Z1_tr <- as.matrix(Z1)
+    Z0_tr <- as.matrix(Z0)
+    Z1_te <- as.matrix(Y1[-(1:T0),])
+    Z0_te <- as.matrix(Y0[-(1:T0),])
+    
+    # Fit the best-subset model
+    V1 <- Z1_tr
+    
+    for (n in 0:(nn - 1)) { # iterate over n's
+      subs_n <- combn(c(1:(N - 2)), n, simplify = FALSE) # generates all combinations of c() taking n at a time
+      int <- matrix(0, nrow = 1, ncol = length(subs_n))
+      w <- matrix(0, nrow = N - 2, ncol = length(subs_n)) # weight matrix for each of the N-2 units and column: each combination
+      err_cur <- matrix(0, nrow = length(subs_n), ncol = 1) # Error for each subset
+      
+      for (j in 1:length(subs_n)) { # all possible combinations for this length of subset
+        sub <- subs_n[[j]]
+        V0 <- cbind(c, Z0_tr[,sub])
+        w_cur <- solve(t(V0) %*% V0, t(V0) %*% V1)
+        int[1,j] <- w_cur[1]
+        w[sub,j] <- w_cur[-1]
+        err_cur[j,1] <- mean((V1 - V0 %*% w_cur) ^ 2)
+      }
+      # Choose the optimal subset of size n and compute the error over time
+      j_opt <- which.min(err_cur)
+      e <- Z1_te - int[rep(1, T1),j_opt] - Z0_te %*% w[,j_opt]
+      err[i - 1,n + 1] <- mean(e ^ 2)
+    }
+  }
+  
+  # Determine optimal n
+  err <- apply(t(scale(t(err))), 2, mean) # Get average error over all units
+  ind_opt <- which.min(err)
+  n_opt <- n_grid[ind_opt]
+  
+  return(n_opt)
+}
+
 
 tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names){
   #d is the dataframe of the panel data
@@ -423,13 +510,14 @@ find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0,
 }
 
 
-find_weights_subset <- function(Y,Z,X,ind_treatment){
+find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment){
   
   ## INPUT:
   #
   # Y: matrix of outcome variables for treated unit and controls 
   # Z: matrix of pre-treatment outcomes for treated unit and controls 
   # X: matrix of covariates for treated unit and controls 
+  # n_opt: optimal number of control units
   # ind_treatment: indicator which unit is the treatment unit
   
   ## OUTPUT:
@@ -450,81 +538,19 @@ find_weights_subset <- function(Y,Z,X,ind_treatment){
   #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
   # Add back if needed!
   
-  # Matrices for storage
-  int <- matrix(0, nrow = 1, ncol = 1)
-  w <- matrix(0, nrow = N - 1, ncol = 1)
-  
-  #########################################
-  ####### OPTIMAL UNITS IN SUBSET #########
-  #########################################
-  
   # Rearrange matrices to have treated unit first
   Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
   Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
   X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
   
-  ## Find the optimal subset #!!
-  # Iterate over i
-  
-  # Still figure out what is going on here!!
-  n_max <- N - 1 # Number of units in subset ?
-  n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # What is this grid?? Why N-2 and N-1?
-  nn <- length(n_grid) # Number of points in n grid
-  err <- matrix(0, nrow = N - 1, ncol = nn) # Storage for errors for each unit and n
-  c <- matrix(1, nrow = T0, ncol = 1) # Just a constant! Needed for fit here later
-  
-  for (i in 2:N) { # over units
-    
-    # Fix matrices 
-    Y1 <- as.matrix(Y[,i])
-    Y0 <- as.matrix(Y[,-c(1,i)]) 
-    Z1 <- as.matrix(Z[,i])
-    Z0 <- as.matrix(Z[,-c(1,i)])
-    X1 <- as.matrix(X[,i])
-    X0 <- as.matrix(X[,-c(1,i)])
-    Z1_tr <- as.matrix(Z1)
-    Z0_tr <- as.matrix(Z0)
-    Z1_te <- as.matrix(Y1[-(1:T0),])
-    Z0_te <- as.matrix(Y0[-(1:T0),])
-    
-    # Fit the best-subset model
-    V1 <- Z1_tr
-    
-    for (n in 0:(nn - 1)) { # iterate over n's
-      subs_n <- combn(c(1:(N - 2)), n, simplify = FALSE) # generates all combinations of c() taking n at a time
-      int <- matrix(0, nrow = 1, ncol = length(subs_n))
-      w <- matrix(0, nrow = N - 2, ncol = length(subs_n)) # weight matrix for each of the N-2 units and column: each combination
-      err_cur <- matrix(0, nrow = length(subs_n), ncol = 1) # Error for each subset
-      
-      for (j in 1:length(subs_n)) { # all possible combinations for this length of subset
-        sub <- subs_n[[j]]
-        V0 <- cbind(c, Z0_tr[,sub])
-        w_cur <- solve(t(V0) %*% V0, t(V0) %*% V1)
-        int[1,j] <- w_cur[1]
-        w[sub,j] <- w_cur[-1]
-        err_cur[j,1] <- mean((V1 - V0 %*% w_cur) ^ 2)
-      }
-      # Choose the optimal subset of size n and compute the error over time
-      j_opt <- which.min(err_cur)
-      e <- Z1_te - int[rep(1, T1),j_opt] - Z0_te %*% w[,j_opt]
-      err[i - 1,n + 1] <- mean(e ^ 2)
-    }
-  }
-  
-  # Determine optimal n
-  err <- apply(t(scale(t(err))), 2, mean) # Get average error over all units
-  ind_opt <- which.min(err)
-  n_opt <- n_grid[ind_opt]
   
   ################################
   ####### OPTIMAL SUBSET #########
   ################################
   
   # Matrices for storage
-  int_subs <- matrix(0, nrow = 1, ncol = 1)
-  w_subs <- matrix(0, nrow = N - 1, ncol = 1)
-  Y_subs <- matrix(0, nrow = T, ncol = 1)
-  Y_true <- matrix(0, nrow = T, ncol = 1)
+  int <- matrix(0, nrow = 1, ncol = 1)
+  w <- matrix(0, nrow = N - 1, ncol = 1)
   c <- matrix(1, nrow = T0, ncol = 1)
   
   # Fix treatment unit
@@ -651,25 +677,29 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
 #}
 #}
 
-# Over Units 
-N <- dim(Y)[2]
-T <- dim(Y)[1]
-T0 <- dim(Z)[1]
-T1 <- T-T0
-std_err_i <- matrix(0, N-1, T1)
-# Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
-Y <- Y[,-ind_treatment]
-Z <- Z[,-ind_treatment]
-X <- X[,-ind_treatment]
 
-for (i in 1:(N-1)) {
+
+# Over units
+se_unit <- function(Y,Z,X, method, alpha= NULL, lambda= NULL, n_opt = NULL, ind_treatment=1){
+  # Over Units 
+  N <- dim(Y)[2]
+  T <- dim(Y)[1]
+  T0 <- dim(Z)[1]
+  T1 <- T-T0
+  std_err_i <- matrix(0, N-1, T1)
+  # Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
+  Y <- Y[,-ind_treatment]
+  Z <- Z[,-ind_treatment]
+  X <- X[,-ind_treatment]
+  
+  for (i in 1:(N-1)) {
     
     # Find weights
     if(method == "elastic_net"){
       w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, i) 
     }
     if(method == "best_subset"){
-      w <- find_weights_subset(Y,Z,X, i)
+      w <- find_weights_subset(Y,Z,X,n_opt, i)
     }
     if(method == "constr_reg"){
       w <- find_weights_constr_reg(Y,Z,X, i)
@@ -679,79 +709,86 @@ for (i in 1:(N-1)) {
     }
     
     # Get standard error
-    std_err_i[i,] <- (Y[-c(1:T0),i] - w$intercept - Y[-c(1:T0),-i] %*% w$weights) ^ 2
+    std_err_i[i,] <- (Y[-c(1:T0),i] - rep(w$intercept,T1) - Y[-c(1:T0),-i] %*% w$weights) ^ 2
+  }
+  std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
+  return(std_err_i)
 }
-std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
 
 # Over Time
-T0 <- dim(Z)[1]
-s <- floor(T0 / 2)
-std_err_t <- matrix(0, s, 1)
-
-for (t in 1:s) {
-
-  # Fix matrix to be according to time period
-  Z <- Z[c(1:(T0 - t)),]
+se_time <- function(Y,Z,X, method, alpha= NULL, lambda= NULL,n_opt = NULL, ind_treatment=1){
+  T0 <- dim(Z)[1]
+  s <- floor(T0 / 2)
+  std_err_t <- matrix(0, s, 1)
   
-  # Find weights
-  if(method == "elastic_net"){
-    w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment) 
-  }
-  if(method == "best_subset"){
-    w <- find_weights_subset(Y,Z,X, ind_treatment)
-  }
-  if(method == "constr_reg"){
-    w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
-  }
-  if(method == "diff_in_diff"){
-    w <- find_weights_did(Y,Z,X, i)
-  }
-  
-  std_err_t[t,1] <- (Y[T0 - t + 1,ind_treatment] - w$intercept - Y[T0 - t + 1,-ind_treatment] %*% w$weights) ^ 2
-}
-std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
-
-# Over Units and Time
-N <- dim(Y)[2]
-T0 <- dim(Z)[1]
-s <- floor(T0 / 2)
-std_err_it <- matrix(0, N - 1, 1)
-# Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
-Y <- Y[,-ind_treatment]
-Z <- Z[,-ind_treatment]
-X <- X[,-ind_treatment]
-
-for (i in 1:(N-1)) {
-  
-  std_err_temp <- matrix(0, s, 1)
   for (t in 1:s) {
+    
     # Fix matrix to be according to time period
     Z <- Z[c(1:(T0 - t)),]
     
     # Find weights
     if(method == "elastic_net"){
-      w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, i) 
+      w <- find_weights_elastic_net(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment) 
     }
     if(method == "best_subset"){
-      w <- find_weights_subset(Y,Z,X, i)
+      w <- find_weights_subset(Y,Z,X,n_opt, ind_treatment)
     }
     if(method == "constr_reg"){
-      w <- find_weights_constr_reg(Y,Z,X, i)
+      w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
     }
     if(method == "diff_in_diff"){
       w <- find_weights_did(Y,Z,X, i)
     }
     
-    std_err_temp[t,1] <- (Y[T0 - t + 1,i] - w$intercept - Y[T0 - t + 1,-i] %*% w$weights) ^ 2
+    std_err_t[t,1] <- (Y[T0 - t + 1,ind_treatment] - w$intercept - Y[T0 - t + 1,-ind_treatment] %*% w$weights) ^ 2
   }
-  std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
-  std_err_it[i,1] <- std_err_temp
+  std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
+  
+  return(std_err_t)
 }
-std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
 
-
-
-
+# Over Units and Time
+se_it <- function(Y,Z,X, method, alpha= NULL, lambda= NULL,n_opt = NULL, ind_treatment=1){
+  # Over Units and Time
+  N <- dim(Y)[2]
+  T0 <- dim(Z)[1]
+  s <- floor(T0 / 2)
+  std_err_it <- matrix(0, N - 1, 1)
+  # Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
+  Y <- Y[,-ind_treatment]
+  Z <- Z[,-ind_treatment]
+  X <- X[,-ind_treatment]
+  
+  for (i in 1:(N-1)) {
+    
+    std_err_temp <- matrix(0, s, 1)
+    for (t in 1:s) {
+      # Fix matrix to be according to time period
+      Z_temp <- Z[c(1:(T0 - t)),]
+      
+      # Find weights
+      if(method == "elastic_net"){
+        w <- find_weights_elastic_net(Y, Z_temp, X, alpha, lambda, lambda_grid, i) 
+      }
+      if(method == "best_subset"){
+        w <- find_weights_subset(Y,Z_temp,X,n_opt, i)
+      }
+      if(method == "constr_reg"){
+        w <- find_weights_constr_reg(Y,Z_temp,X, i)
+      }
+      if(method == "diff_in_diff"){
+        w <- find_weights_did(Y,Z_temp,X, i)
+      }
+      
+      std_err_temp[t,1] <- (Y[T0 - t + 1,i] - w$intercept - Y[T0 - t + 1,-i] %*% w$weights) ^ 2
+    }
+    std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
+    std_err_it[i,1] <- std_err_temp
+  }
+  std_err_it <- as.matrix(sqrt(apply(std_err_it, 2, mean)))
+  
+  return(std_err_it)
+}
 
 
 
