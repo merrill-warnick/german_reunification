@@ -852,7 +852,7 @@ se_time <- function(data, N, T, T0,  pred, y, u, t, cspec,i,j, spec, cont_set, c
     
     vw <- find_vweights(data, pred, y, u, t, cspec, i, j, cont_set, cyears[1], cyears[2], cyears[3], cyears[4], names, cyears[5], cyears[6],names)
     
-    w <- find_ysynth(data, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, years[5], years[6],names, vw, TRUE)
+    w <- find_weights_synth(data, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4]-k, years[5], years[6],names, vw, TRUE)
     
     std_err_t[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
   }
@@ -873,7 +873,7 @@ se_unit_time <- function(d, N, T, T0, pred, y, u, t, cspec, spec, cont_set, cyea
       
       vw <- find_vweights(d, pred, y, u, t, cspec, i,j, cont_set, cyears[1], cyears[2], cyears[3], cyears[4], cyears[5], cyears[6], names)
       
-      w <- find_ysynth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4] - k, years[5], years[6], names, vw, TRUE)
+      w <- find_weights_synth(d, pred, y, u, t, spec, i,j, cont_set, years[1], years[2], years[3], years[4] - k, years[5], years[6], names, vw, TRUE)
       
       std_err_temp[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
     }
