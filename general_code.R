@@ -7,6 +7,9 @@ library(ggplot2)
 
 source('functions.R')
 
+# Load data
+d <- read.dta("repgermany.dta")
+
 ################################
 ########## Parameters ##########
 ################################
@@ -18,7 +21,7 @@ source('functions.R')
 ###################################################
 
 # Get estimates and standard errors
-fit_elastic_net <- general_estimate(data, method = "elastic_net", 
+fit_elastic_net <- general_estimate(d, method = "elastic_net", 
                                     prep_params= list(FALSE, c("gdp","trade","infrate"),
                                                       "gdp",1,3,list(
                                                         list("industry", 1971:1980, c("mean")),
@@ -29,8 +32,7 @@ fit_elastic_net <- general_estimate(data, method = "elastic_net",
                                                       c(1971,1980,1981,1990,1960,2003),2), 
                                     special_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                             seq(from = 2e-01, to = 100, by = 1e-01), 
-                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)), 
-                                    ind_treatment=1)
+                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
 
 #################################
 ########## Save Values ##########
