@@ -108,18 +108,18 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
     
     # Best subset: Find tuning parameter and weights
     if(method == "best_subset"){
-      n_opt <- tuning_parameters_best_subset(Y,Z,X,ind_treatment)
-      w <- find_weights_subset(Y,Z,X,n_opt,ind_treatment)
+      n_opt <- tuning_parameters_best_subset(Y,Z,X)
+      w <- find_weights_subset(Y,Z,X,n_opt)
     }
     
     # Diff-in-diff: Find weights
     if (method == "diff_in_diff"){
-      w <- find_weights_did(Y, Z, X, ind_treatment)
+      w <- find_weights_did(Y, Z, X)
     }
     
     # Constrained regression: Find weights
     if(method == "constr_reg"){
-      w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
+      w <- find_weights_constr_reg(Y,Z,X)
     }
     
     ###
@@ -128,6 +128,9 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
     
     ###
     # Get standard error
+    std_err_i = 0
+    std_err_t = 0
+    std_err_it = 0
     
     ###
     # Output
