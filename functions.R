@@ -42,6 +42,7 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
   # Y_true: true Y-values
   # alpha_opt: optimal alpha (if method is elastic net)
   # lambda_opt: optimal lambda (if method is elastic net)
+  # n_opt: optimal number of control units (if method is best subset)
   # std_err_i: standard error over units
   # std_err_t: standard error over time
   # std_err_it: standard error over unit and time
