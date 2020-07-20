@@ -7,18 +7,30 @@ library(ggplot2)
 
 source('functions.R')
 
-##############################
-########## Dataprep ##########
-##############################
-# Here or in general_estimate function?? Tbd
+################################
+########## Parameters ##########
+################################
 
+# Maybe needed, maybe not?
 
 ###################################################
 ########## Estimates and Standard Errors ##########
 ###################################################
 
 # Get estimates and standard errors
-
+fit_elastic_net <- general_estimate(data, method = "elastic_net", 
+                                    prep_params= list(FALSE, c("gdp","trade","infrate"),
+                                                      "gdp",1,3,list(
+                                                        list("industry", 1971:1980, c("mean")),
+                                                        list("schooling",c(1970,1975), c("mean")),
+                                                        list("invest70" ,1980, c("mean"))
+                                                      ),
+                                                      7,7,unique(d$index)[-7],
+                                                      c(1971,1980,1981,1990,1960,2003),2), 
+                                    special_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                                            seq(from = 2e-01, to = 100, by = 1e-01), 
+                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)), 
+                                    ind_treatment=1)
 
 #################################
 ########## Save Values ##########
@@ -68,6 +80,7 @@ data_did <- readMat('germ_did_nocov.mat')
 data_elast <- readMat('germ_elast_nocov.mat')
 data_subset <- readMat('germ_subs_nocov.mat')
 data_synth <- readMat('germ_synth.mat')
+data_constr <- readMat('germ_constr_reg_nocov.mat')
 
 ### Treatment figure
 plot(1960:2003, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "West Germany: per capita GDP", xlab = "Year", ylab = "", las = 1, bty = 'L')
@@ -106,25 +119,25 @@ abline(v = 2002, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Counterfactual
-tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_synth$Y.synth.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)],data_synth$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_elast$Y.elast.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]) # cbind for each method
-std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
+#tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_synth$Y.synth.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)],data_synth$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_elast$Y.elast.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]) # cbind for each method
+#std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
 
-plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
-lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
-lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
-lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
-lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
-lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
-abline(h = 0, col= "black")
-abline(v = 1982, col = "grey96")
-abline(v = 1983, col = "grey96")
-abline(v = 1984, col = "grey96")
-abline(v = 1985, col = "grey96")
-abline(v = 1986, col = "grey96")
-abline(v = 1987, col = "grey96")
-abline(v = 1988, col = "grey96")
-abline(v = 1989, col = "grey96")
-legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
+#plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
+#lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
+#lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
+#lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
+#lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
+#lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
+#abline(h = 0, col= "black")
+#abline(v = 1982, col = "grey96")
+#abline(v = 1983, col = "grey96")
+#abline(v = 1984, col = "grey96")
+#abline(v = 1985, col = "grey96")
+#abline(v = 1986, col = "grey96")
+#abline(v = 1987, col = "grey96")
+#abline(v = 1988, col = "grey96")
+#abline(v = 1989, col = "grey96")
+#legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Weights
 weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)

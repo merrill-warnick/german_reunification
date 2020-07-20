@@ -14,23 +14,25 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data, method = NULL, prep_params, special_params = NULL, ind_treatment = 1){
+general_estimate <- function(data, method, prep_params, special_params = NULL, ind_treatment){
   
   ## INPUT:
   #
   # data: specify whether just frame or already in X,Y,Z
-  # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"
-  # lambda_grid: pre-specified lambda grid over which we are optimizing
-  # alpha_grid: pre-specified alpha grid over which we are optimizing
-  # ind_treatment: indicator which unit is the treatment unit; default is column 1
+  # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
+  # special_params: list of lambda grid and alpha grid over which we are optimizing; special_params = list(lambda_grid,alpha_grid)
+  # ind_treatment: indicator which unit is the treatment unit; no default since we need user to actually specify this!
   
   #prep parameters is the vector for data prep
   
   # I think I'll change it so that we have a special_parameters input?
   #then it will have lambda_grid/alpha_grid and all of the parameters for synth
   #but it's null by default?
+  # Yeah that's fine
   
   # Are we going to make it so that the user doesn't have to plug in inputs for the methods they don't use?
+  # Yes! So special_params should be NULL by default indeed if we don't pick elastic net as a default method
+  # But that's the only thing that should be by default, right?
   
   ## OUTPUT:
   #
@@ -59,7 +61,26 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
     
     #for all of these prep_data parameters...how do we want to pass them into the function?
     #do we want to make it so that we don't have to do a dataframe with named columns? We can worry about that later I guess
+    # I think we should specify that data frame should have named columns -> makes things easier because idk how else the dataprep() function handles the data frame
+    
+    # I think we need to run this either way, also with synth, to get Y0
     if(method!="synth"){
+      
+      #prep_params[[1]] = full: boolean if should return extracted matrices -> do not need this, do we??
+      #prep_params[[2]] = pred: vector containing string with predictor variables 
+      #prep_params[[3]] = dep: string specifying which one is dependent variable
+      #prep_params[[4]] = u: integer identifying unit variable (which column in data frame specifies index!)
+      #prep_names[[5]] = t: integer identifying time variable (which column in data frame specifies time!)
+      #prep_names[[6]] = spec: list of special predictors
+      #prep_names[[7]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
+      #prep_names[[8]] = j: 
+      #prep_names[[9]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
+      #prep_names[[10]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
+      #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
+      #                                            [5]: start time plot, [6]: end time plot
+      #prep_names[[11]] = names: unit names variable (which column in data frame specifies unit names!)
+      
+      # miss one params here?? Compared to function below
       data <- prep_data(data, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
       Y<- data$Y
       Z<- data$Z
@@ -69,9 +90,9 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
     ####
     # Get weights
     
-    # Elastic Net: Find tuning parameter and weights
+    # Elastic Net: Find tuning parameters and weights
     if(method == "elastic_net"){
-      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[1], special_params[2], ind_treatment)
+      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[[1]], special_params[[2]], ind_treatment)
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, lambda_grid, ind_treatment) 
     }
     
@@ -99,13 +120,13 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
       w <- find_weights_synth(data, pred, y, u, t, spec, ind_treament, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names, v, FALSE)
     }
     
-    # Best subset: Find weights
+    # Best subset: Find tuning parameter and weights
     if(method == "best_subset"){
       n_opt <- tuning_parameters_best_subset(Y,Z,X,ind_treatment)
       w <- find_weights_subset(Y,Z,X,n_opt,ind_treatment)
     }
     
-    #Diff-in-diff: Find weights
+    # Diff-in-diff: Find weights
     if (method == "diff_in_diff"){
       w <- find_weights_did(Y, Z, X, ind_treatment)
     }
@@ -117,7 +138,7 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
     
     ###
     # Get estimate
-    Y_est = w$intercept + Y0%*%w$weights
+    Y_est = w$intercept + Y[,-ind_treatment]%*%w$weights
     
     ###
     # Get standard error
@@ -125,12 +146,12 @@ general_estimate <- function(data, method = NULL, prep_params, special_params = 
     ###
     # Output
     if(method == "elastic_net"){
-      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
     }else{
       if(method == "best_subset"){
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
       }else{
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= T0,"T_1"=T1)
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"= dim(Y)[1]-dim(Z)[1])
       }
     }
   }
@@ -195,7 +216,7 @@ prep_data <- function(d, full, pred, dep, u, t, spec,i, j, subs, years, names){
 }
 
 
-tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment){
+tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment=1){
   
   ## INPUT:
   #
@@ -276,7 +297,7 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   out <- list("alpha"= alpha_opt, "lambda"= lambda_opt)
 }
 
-tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment){
+tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   
   ## INPUT:
   #
@@ -421,7 +442,7 @@ tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predye
 
 
 
-find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment){
+find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment=1){
   
   ## INPUT:
   #
@@ -510,7 +531,7 @@ find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0,
 }
 
 
-find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment){
+find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   
   ## INPUT:
   #
@@ -593,15 +614,14 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment){
 }
 
 #find weights needs to spit out weights and an intercept
-find_weights_did <- function(Y, Z, X, ind_treatment){
+find_weights_did <- function(Y, Z, X, ind_treatment=1){
   N <- dim(Y)[2]
   w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
   int <- as.matrix(mean(Z[,ind_treatment]) - mean(Z[,-ind_treatment]))
   out <- list("intercept" = int, "weights" = w)
 }
 
-
-find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
+find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
   ## INPUT:
   #
   # Y: matrix of outcome variables for treated unit and controls 
