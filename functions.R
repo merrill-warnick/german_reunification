@@ -54,30 +54,19 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
   }else{
     ####
     # Dataprep
-    # Here or before?
-    # I think that doing it here makes sense? Doing it before would make the inputs nicer but I think it would make the synth/others differences easier to deal with
-    
-    #wait I lied. We do all the dataprep stuff INSIDE synth so actually we don't want to do any dataprep if we're doing synth
-    
-    #for all of these prep_data parameters...how do we want to pass them into the function?
-    #do we want to make it so that we don't have to do a dataframe with named columns? We can worry about that later I guess
-    # I think we should specify that data frame should have named columns -> makes things easier because idk how else the dataprep() function handles the data frame
-    
-    # I think we need to run this either way, also with synth, to get Y0
-      
 
-      #prep_params[[1]] = pred: vector containing string with predictor variables 
-      #prep_params[[2]] = dep: string specifying which one is dependent variable
-      #prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
-      #prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
-      #prep_names[[5]] = spec: list of special predictors
-      #prep_names[[6]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
-      #prep_names[[7]] = j: 
-      #prep_names[[8]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
-      #prep_names[[9]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
-      #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
-      #                                            [5]: start time plot, [6]: end time plot
-      #prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
+    # prep_params[[1]] = pred: vector containing string with predictor variables 
+    # prep_params[[2]] = dep: string specifying which one is dependent variable
+    # prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
+    # prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
+    # prep_names[[5]] = spec: list of special predictors
+    # prep_names[[6]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
+    # prep_names[[7]] = j: 
+    # prep_names[[8]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
+    # prep_names[[9]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
+    #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
+    #                                            [5]: start time plot, [6]: end time plot
+    # prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
       
     data <- prep_data(data_df, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], prep_params[[9]], prep_params[[10]])
     Y<- data$Y
@@ -432,9 +421,6 @@ tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predye
   output <- synth.out$solution.v
 }
 
-
-
-
 find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment=1){
   
   ## INPUT:
@@ -490,7 +476,6 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   
 }
 
-
 find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, names, vweight, yinclude){
   
   dataprep.out <-
@@ -522,7 +507,6 @@ find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0,
     out<- list("intercept" = 0, "weights" = w, "Y1"<-dataprep.out$Y1, "Y0"<-dataprep.out$Y0)
   }
 }
-
 
 find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   
@@ -606,7 +590,6 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   out <- list("intercept" = int, "weights" =w)
 }
 
-#find weights needs to spit out weights and an intercept
 find_weights_did <- function(Y, Z, X, ind_treatment=1){
   N <- dim(Y)[2]
   w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
@@ -700,6 +683,7 @@ se_unit <- function(Y,Z,X, method, alpha= NULL, lambda= NULL, n_opt = NULL, ind_
   T0 <- dim(Z)[1]
   T1 <- T-T0
   std_err_i <- matrix(0, N-1, T1)
+  
   # Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
   Y <- Y[,-ind_treatment]
   Z <- Z[,-ind_treatment]
@@ -802,9 +786,6 @@ se_it <- function(Y,Z,X, method, alpha= NULL, lambda= NULL,n_opt = NULL, ind_tre
   
   return(std_err_it)
 }
-
-
-
 
 
 #############Synth standard error functions#######################
