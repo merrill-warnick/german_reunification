@@ -67,19 +67,19 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
     # I think we need to run this either way, also with synth, to get Y0
     if(method!="synth"){
       
-      #prep_params[[1]] = full: boolean if should return extracted matrices -> do not need this, do we??
-      #prep_params[[2]] = pred: vector containing string with predictor variables 
-      #prep_params[[3]] = dep: string specifying which one is dependent variable
-      #prep_params[[4]] = u: integer identifying unit variable (which column in data frame specifies index!)
-      #prep_names[[5]] = t: integer identifying time variable (which column in data frame specifies time!)
-      #prep_names[[6]] = spec: list of special predictors
-      #prep_names[[7]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
-      #prep_names[[8]] = j: 
-      #prep_names[[9]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
-      #prep_names[[10]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
+
+      #prep_params[[1]] = pred: vector containing string with predictor variables 
+      #prep_params[[2]] = dep: string specifying which one is dependent variable
+      #prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
+      #prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
+      #prep_names[[5]] = spec: list of special predictors
+      #prep_names[[6]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
+      #prep_names[[7]] = j: 
+      #prep_names[[8]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
+      #prep_names[[9]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
       #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
       #                                            [5]: start time plot, [6]: end time plot
-      #prep_names[[11]] = names: unit names variable (which column in data frame specifies unit names!)
+      #prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
       
       # miss one params here?? Compared to function below
       data <- prep_data(data, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
@@ -171,7 +171,7 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
 #I guess for now I'll just put synth inside the function and leave this out until Lea and I meet.
 #I think that we should have like a "special parameters" input that lets you put in the method-specific parameters.
 #I thought about this more up above by the way.
-prep_data <- function(d, full, pred, dep, u, t, spec,i, j, subs, years, names){
+prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, years, names){
   
   dataprep.out <-
     dataprep(
@@ -190,7 +190,6 @@ prep_data <- function(d, full, pred, dep, u, t, spec,i, j, subs, years, names){
     )
   
   #######################################
-  if (full==FALSE){
     #prepping the pieces
     X0 <- dataprep.out$X0
     X1 <- dataprep.out$X1
@@ -212,7 +211,6 @@ prep_data <- function(d, full, pred, dep, u, t, spec,i, j, subs, years, names){
     datlist <- list( x <- X, y <- Y, z <- Z)
     names(datlist) <- c( "x", "y", "z")
     output<-datlist
-  }
   
 }
 
