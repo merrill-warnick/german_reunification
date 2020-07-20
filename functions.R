@@ -14,7 +14,10 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data_df, method = NULL, prep_params, special_params = NULL){
+#note: I think that ind_treatment shouldn't be defaulted as 1 here, since the only place we use ind_treatment after prep_data is 
+#in synthetic control stuff and ind_treatment is going to be not necessarily one.
+
+general_estimate <- function(data_df, method = NULL, prep_params, tune_params = NULL, ind_treatment=1){
   
   ## INPUT:
   #
@@ -60,15 +63,15 @@ general_estimate <- function(data_df, method = NULL, prep_params, special_params
     # prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
     # prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
     # prep_names[[5]] = spec: list of special predictors
-    # prep_names[[6]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
-    # prep_names[[7]] = j: 
-    # prep_names[[8]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
-    # prep_names[[9]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
+    # prep_names[[]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
+    
+    # prep_names[[6]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
+    # prep_names[[7]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
     #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
     #                                            [5]: start time plot, [6]: end time plot
-    # prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
-      
-    data <- prep_data(data_df, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], prep_params[[9]], prep_params[[10]])
+    # prep_names[[8]] = names: unit names variable (which column in data frame specifies unit names!)
+    
+    data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
     Y<- data$Y
     Z<- data$Z
     X<- data$X
@@ -78,8 +81,8 @@ general_estimate <- function(data_df, method = NULL, prep_params, special_params
     
     # Elastic Net: Find tuning parameters and weights
     if(method == "elastic_net"){
-      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[[1]], special_params[[2]])
-      w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, special_params[[1]]) 
+      params <- tuning_parameters_elastic_net(Y,Z,X, tune_params[[1]], tune_params[[2]])
+      w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
     }
     
     #synthetic control: find tuning parameters and weights
@@ -102,8 +105,10 @@ general_estimate <- function(data_df, method = NULL, prep_params, special_params
       # Another thing to think about is that we should probably think about a way to automatically figure out what the years should be from T, T1, T0 or whatever
       #maybe we split it up into index_parameters/time_parameters/other_parameters? idk. and i guess that some of these are actually names for columns, right? hmmmm
       
-      v <- tuning_parameters_synth(data_df, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1,  year0, year1, names)
-      w <- find_weights_synth(data_df, pred, y, u, t, spec, ind_treament, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names, v, FALSE)
+      #tune params will be a vector of the six years that we need.
+      
+      v <- tuning_parameters_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], tune_params, prep_params[[8]])
+      w <- find_weights_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], v, FALSE)
     }
     
     # Best subset: Find tuning parameter and weights
@@ -124,6 +129,9 @@ general_estimate <- function(data_df, method = NULL, prep_params, special_params
     
     ###
     # Get estimate
+    
+    #I'm a little bt worried that this isn't going to play nicely with the synth stuff? I'll just deal with that when I actually start running the code.
+    
     Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
     Y_true = Y[,1]
     
@@ -160,7 +168,9 @@ general_estimate <- function(data_df, method = NULL, prep_params, special_params
 #I guess for now I'll just put synth inside the function and leave this out until Lea and I meet.
 #I think that we should have like a "special parameters" input that lets you put in the method-specific parameters.
 #I thought about this more up above by the way.
-prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, years, names){
+
+
+prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, names){
   
   dataprep.out <-
     dataprep(
@@ -170,8 +180,8 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, years, names){
       unit.variable = u,
       time.variable = t,
       special.predictors = spec,
-      treatment.identifier = i,
-      controls.identifier = subs[-j],
+      treatment.identifier = ind_treat,
+      controls.identifier = cont_set,
       time.predictors.prior = years[1]:years[2],
       time.optimize.ssr = years[3]:years[4],
       unit.names.variable = names,
@@ -370,7 +380,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   return(n_opt)
 }
 
-tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names){
+tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names){
   #d is the dataframe of the panel data
   #pred is a string of predictor variables
   #y is the string name of the dependent variable
@@ -386,6 +396,17 @@ tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predye
   #names is the column of name identifiers for the units
   #yearX is the first and last year that you want for time.plot
   
+  
+  #okay need to adjust the years.
+  #so i'm a little bit confused about how to generalize this from the years...it seems like it might be specific...but I'll just
+  #decide which ones are the prior period???
+  
+  #okay so I did more reading and looked into the years that this is supposed to use and it looks more ad-hoc. It looks like we can't
+  #just easily figure out what the fit/optimization year periods are supposed to be. Because of that, I think we'll use the "special parameters"
+  #input to give us a years vector for this one. Maybe we could call it crossval_params or something like that, since we only need them for crossvalidation.
+  #I guess we need to check that dataprep really does give us the right Y, Z, X when we use the years that we plug into the synth estimation, which is now
+  #we have it set up right now.
+  
   dataprep.out <-
     dataprep(
       
@@ -393,7 +414,7 @@ tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predye
       
       predictors    = pred,
       
-      dependent     = y,
+      dependent     = dep,
       
       unit.variable = u,
       
@@ -401,17 +422,17 @@ tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predye
       
       special.predictors = spec,
       
-      treatment.identifier = i,
+      treatment.identifier = ind_treatment,
       
-      controls.identifier = cont_set[-j],
+      controls.identifier = cont_set,
       
-      time.predictors.prior = predyear0:predyear1,
+      time.predictors.prior = years[1]:years[2],
       
-      time.optimize.ssr = optyear0:optyear1,
+      time.optimize.ssr = years[3]:years[4],
       
       unit.names.variable = names,
       
-      time.plot = year0:year1
+      time.plot = years[5]:years[6]
     )
   
   #fit training model to pull out vweights
@@ -479,23 +500,23 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   
 }
 
-#find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, names, vweight, yinclude){
+#find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names, vweight, yinclude){
 #  
 #  dataprep.out <-
 #    dataprep(
 #      foo = d,
 #      predictors    = pred,
-#      dependent     = y,
+#      dependent     = dep,
 #      unit.variable = u,
 #      time.variable = t,
 #      special.predictors = spec,
-#      treatment.identifier = i,
-#     controls.identifier = cont_set[-j],
+#      treatment.identifier = ind_treatment,
+#     controls.identifier = cont_set,
  #     
-#      time.predictors.prior = predyear0:predyear1,
-#      time.optimize.ssr = optyear0:optyear1,
+#      time.predictors.prior = years[1]:years[2],
+#      time.optimize.ssr = years[3]:years[4],
 #      unit.names.variable = names,
-#     time.plot = year0:year1
+#     time.plot = years[5]:years[6]
 #    )
 #  
 #  
@@ -820,7 +841,7 @@ se_unit_synth <- function(data, N, T, T0, pred, y, u, t, cspec, spec, cont_set, 
 
 
 
-se_time <- function(data, N, T, T0,  pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
+se_time_synth <- function(data, N, T, T0,  pred, y, u, t, cspec,i,j, spec, cont_set, cyears, years, names){
   
   s <- floor(T0 / 2)
   std_err_t <- matrix(0, s, 1)
@@ -839,7 +860,7 @@ se_time <- function(data, N, T, T0,  pred, y, u, t, cspec,i,j, spec, cont_set, c
 
 
 
-se_unit_time <- function(d, N, T, T0, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
+se_unit_time_synth <- function(d, N, T, T0, pred, y, u, t, cspec, spec, cont_set, cyears, years, names){
   
   s <- floor(T0 / 2)
   
