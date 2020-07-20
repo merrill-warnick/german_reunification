@@ -18,7 +18,7 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
   
   ## INPUT:
   #
-  # data: specify whether just frame or already in X,Y,Z
+  # data: specify whether just frame 
   # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
   # special_params: list of lambda grid and alpha grid over which we are optimizing; special_params = list(lambda_grid,alpha_grid)
 
@@ -210,7 +210,6 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, years, names){
   
 }
 
-
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment=1){
   
   ## INPUT:
@@ -378,7 +377,6 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   
   return(n_opt)
 }
-
 
 tuning_parameters_synth <- function(d, pred, y, u, t, spec, i,j,cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names){
   #d is the dataframe of the panel data
