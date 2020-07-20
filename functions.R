@@ -14,7 +14,7 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data, method, prep_params, special_params = NULL, ind_treatment){
+general_estimate <- function(data_df, method, prep_params, special_params = NULL, ind_treatment){
   
   ## INPUT:
   #
@@ -65,7 +65,6 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
     # I think we should specify that data frame should have named columns -> makes things easier because idk how else the dataprep() function handles the data frame
     
     # I think we need to run this either way, also with synth, to get Y0
-    if(method!="synth"){
       
 
       #prep_params[[1]] = pred: vector containing string with predictor variables 
@@ -81,12 +80,11 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
       #                                            [5]: start time plot, [6]: end time plot
       #prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
       
-      # miss one params here?? Compared to function below
-      data <- prep_data(data, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
-      Y<- data$Y
-      Z<- data$Z
-      X<- data$X
-    }    
+    # miss one params here?? Compared to function below
+    data <- prep_data(data_df, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
+    Y<- data$Y
+    Z<- data$Z
+    X<- data$X
     
     ####
     # Get weights
@@ -117,8 +115,8 @@ general_estimate <- function(data, method, prep_params, special_params = NULL, i
       # Another thing to think about is that we should probably think about a way to automatically figure out what the years should be from T, T1, T0 or whatever
       #maybe we split it up into index_parameters/time_parameters/other_parameters? idk. and i guess that some of these are actually names for columns, right? hmmmm
       
-      v <- tuning_parameters_synth(data, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1,  year0, year1, names)
-      w <- find_weights_synth(data, pred, y, u, t, spec, ind_treament, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names, v, FALSE)
+      v <- tuning_parameters_synth(data_df, pred, y, u, t, spec, ind_treatment, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1,  year0, year1, names)
+      w <- find_weights_synth(data_df, pred, y, u, t, spec, ind_treament, ind_treatment, cont_set, predyear0, predyear1, optyear0, optyear1, year0, year1, names, v, FALSE)
     }
     
     # Best subset: Find tuning parameter and weights
