@@ -14,15 +14,14 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data_df, method, prep_params, special_params = NULL, ind_treatment){
+general_estimate <- function(data_df, method, prep_params, special_params = NULL){
   
   ## INPUT:
   #
   # data: specify whether just frame or already in X,Y,Z
   # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
   # special_params: list of lambda grid and alpha grid over which we are optimizing; special_params = list(lambda_grid,alpha_grid)
-  # ind_treatment: indicator which unit is the treatment unit; no default since we need user to actually specify this!
-  
+
   #prep parameters is the vector for data prep
   
   # I think I'll change it so that we have a special_parameters input?
@@ -80,8 +79,7 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
       #                                            [5]: start time plot, [6]: end time plot
       #prep_names[[10]] = names: unit names variable (which column in data frame specifies unit names!)
       
-    # miss one params here?? Compared to function below
-    data <- prep_data(data_df, prep_params[1], prep_params[2], prep_params[3], prep_params[4], prep_params[5], prep_params[6], prep_params[7], prep_params[8], prep_params[9], prep_params[10])
+    data <- prep_data(data_df, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], prep_params[[9]], prep_params[[10]])
     Y<- data$Y
     Z<- data$Z
     X<- data$X
