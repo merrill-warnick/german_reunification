@@ -14,7 +14,7 @@ library(modopt.matlab)
 
 # Function to get weights, fitted values and standard errors
 
-general_estimate <- function(data_df, method, prep_params, special_params = NULL){
+general_estimate <- function(data_df, method = NULL, prep_params, special_params = NULL){
   
   ## INPUT:
   #
@@ -49,7 +49,7 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
   # T_1: time points after intervention
   
   # Make sure that one of the methods that is feasible is specified
-  if(is.null(method) | method != "diff_in_diff" | method != "elastic_net" | method != "constr_reg" | method != "synth" | method != "best_subset"){
+  if(is.null(method)){# | method != "diff_in_diff" | method != "elastic_net" | method != "constr_reg" | method != "synth" | method != "best_subset"){
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     ####
@@ -78,8 +78,8 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
     
     # Elastic Net: Find tuning parameters and weights
     if(method == "elastic_net"){
-      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[[1]], special_params[[2]], ind_treatment)
-      w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, lambda_grid, ind_treatment) 
+      params <- tuning_parameters_elastic_net(Y,Z,X, special_params[[1]], special_params[[2]])
+      w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, special_params[[1]]) 
     }
     
     #synthetic control: find tuning parameters and weights
@@ -124,7 +124,8 @@ general_estimate <- function(data_df, method, prep_params, special_params = NULL
     
     ###
     # Get estimate
-    Y_est = w$intercept + Y[,-ind_treatment]%*%w$weights
+    Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
+    Y_true = Y[,1]
     
     ###
     # Get standard error
@@ -197,9 +198,8 @@ prep_data <- function(d, pred, dep, u, t, spec,i, j, subs, years, names){
     Z <- cbind(Z1, Z0)
     
     datlist <- list( x <- X, y <- Y, z <- Z)
-    names(datlist) <- c( "x", "y", "z")
+    names(datlist) <- c( "X", "Y", "Z")
     output<-datlist
-  
 }
 
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment=1){
@@ -479,37 +479,37 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   
 }
 
-find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, names, vweight, yinclude){
-  
-  dataprep.out <-
-    dataprep(
-      foo = d,
-      predictors    = pred,
-      dependent     = y,
-      unit.variable = u,
-      time.variable = t,
-      special.predictors = spec,
-      treatment.identifier = i,
-      controls.identifier = cont_set[-j],
-      
-      time.predictors.prior = predyear0:predyear1,
-      time.optimize.ssr = optyear0:optyear1,
-      unit.names.variable = names,
-      time.plot = year0:year1
-    )
-  
-  
-  synth.out <- synth(
-    data.prep.obj=dataprep.out,
-    custom.v=as.numeric(vweight)
-  )
-  
-  w <- synth.out$solution.w
-  out <- list("intercept" = 0, "weights" = w)
-  if(yinclude==TRUE){
-    out<- list("intercept" = 0, "weights" = w, "Y1"<-dataprep.out$Y1, "Y0"<-dataprep.out$Y0)
-  }
-}
+#find_weights_synth <- function(d, pred, y, u, t, spec, i, j,cont_set, predyear0, predyear1, optyear0, optyear1, names, year0, year1, names, vweight, yinclude){
+#  
+#  dataprep.out <-
+#    dataprep(
+#      foo = d,
+#      predictors    = pred,
+#      dependent     = y,
+#      unit.variable = u,
+#      time.variable = t,
+#      special.predictors = spec,
+#      treatment.identifier = i,
+#     controls.identifier = cont_set[-j],
+ #     
+#      time.predictors.prior = predyear0:predyear1,
+#      time.optimize.ssr = optyear0:optyear1,
+#      unit.names.variable = names,
+#     time.plot = year0:year1
+#    )
+#  
+#  
+#  synth.out <- synth(
+#    data.prep.obj=dataprep.out,
+#    custom.v=as.numeric(vweight)
+#  )
+#  
+#  w <- synth.out$solution.w
+#  out <- list("intercept" = 0, "weights" = w)
+#  if(yinclude==TRUE){
+#    out<- list("intercept" = 0, "weights" = w, "Y1"<-dataprep.out$Y1, "Y0"<-dataprep.out$Y0)
+#  }
+#}
 
 find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   

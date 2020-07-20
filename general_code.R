@@ -22,17 +22,26 @@ d <- read.dta("repgermany.dta")
 
 # Get estimates and standard errors
 fit_elastic_net <- general_estimate(d, method = "elastic_net", 
-                                    prep_params= list(FALSE, c("gdp","trade","infrate"),
+                                    prep_params= list(c("gdp","trade","infrate"),
                                                       "gdp",1,3,list(
-                                                        list("industry", 1971:1980, c("mean")),
-                                                        list("schooling",c(1970,1975), c("mean")),
-                                                        list("invest70" ,1980, c("mean"))
+                                                        list("industry" ,1981:1990, c("mean")),
+                                                        list("schooling",c(1980,1985), c("mean")),
+                                                        list("invest80" ,1980, c("mean"))
                                                       ),
                                                       7,7,unique(d$index)[-7],
-                                                      c(1971,1980,1981,1990,1960,2003),2), 
+                                                      c(1981,1990,1960,1989,1960,2003),2), 
                                     special_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                             seq(from = 2e-01, to = 100, by = 1e-01), 
                                                             seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
+fit_constr_reg <- general_estimate(d, method = "constr_reg", 
+                                    prep_params= list(c("gdp","trade","infrate"),
+                                                      "gdp",1,3,list(
+                                                        list("industry" ,1981:1990, c("mean")),
+                                                        list("schooling",c(1980,1985), c("mean")),
+                                                        list("invest80" ,1980, c("mean"))
+                                                      ),
+                                                      7,7,unique(d$index)[-7],
+                                                      c(1981,1990,1960,1989,1960,2003),2))
 
 #################################
 ########## Save Values ##########
