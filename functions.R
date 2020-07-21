@@ -16,8 +16,9 @@ library(modopt.matlab)
 
 #note: I think that ind_treatment shouldn't be defaulted as 1 here, since the only place we use ind_treatment after prep_data is 
 #in synthetic control stuff and ind_treatment is going to be not necessarily one.
+# Yes, agreed! The way we have it now, it should not be defualted to 1
 
-general_estimate <- function(data_df, method = NULL, prep_params, tune_params = NULL, ind_treatment=1){
+general_estimate <- function(data_df, method = NULL, prep_params, tune_params = NULL, ind_treatment){
   
   ## INPUT:
   #
@@ -188,6 +189,7 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
     output<-datlist
 }
 
+# Function to find the optimal tuning parameters (i.e. alpha and lambda value) for the elastic net fit
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment=1){
   
   ## INPUT:
@@ -197,7 +199,7 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   # X: matrix of covariates for treated unit and controls 
   # lambda_grid: pre-specified lambda grid over which we are optimizing
   # alpha_grid: pre-specified alpha grid over which we are optimizing
-  # ind_treatment: indicator which unit is the treatment unit
+  # ind_treatment: indicator which unit is the treatment unit in Y,Z and X matrices
   
   ## OUTPUT:
   #
@@ -214,7 +216,8 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
   lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
   
-  # Rearrange matrices to have treated unit first
+  # Rearrange matrices to have treated unit first to make the following procedure easier to generalize
+  
   Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
   Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
   X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
@@ -232,43 +235,44 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
       Z0 <- as.matrix(Z[,-c(1,i)])
       X1 <- as.matrix(X[,i])
       X0 <- as.matrix(X[,-c(1,i)])
-      Z1_tr <- Z1 # what does this stand for: tr??
-      Z0_tr <- Z0 # pre-treatment outcomes?
-      Z1_te <- as.matrix(Y1[-(1:T0),]) # what does this stand for: te??
-      Z0_te <- as.matrix(Y0[-(1:T0),]) # post treatment outcomes?
+      Z1_tr <- Z1 # Pre-treatment outcomes for treated unit
+      Z0_tr <- Z0 # Pre-treatment outcomes for control units
+      Z1_te <- as.matrix(Y1[-(1:T0),]) # Post-treatment outcomes for treated unit
+      Z0_te <- as.matrix(Y0[-(1:T0),]) # Post-treatment outcomes for control units
       
-      # Fit elastic net -> on pre-treatment outcomes
-      V1 <- scale(Z1_tr, scale = FALSE)
-      V0 <- scale(Z0_tr, scale = FALSE)
+      # Fit elastic net on pre-treatment outcomes
+      V1 <- scale(Z1_tr, scale = FALSE) # Scale outcomes to have mean zero
+      V0 <- scale(Z0_tr, scale = FALSE) # Scale outcomes to have mean zero
       fit <- glmnet(x = V0, y = V1,
                     alpha = a,
                     lambda = lambda_grid,
                     standardize = FALSE,
                     intercept = FALSE) # elastic net function: alpha = a and for all lambda points in lambda grid
       w <- as.matrix(coef(fit, s = lambda_grid)) # Save coefficients of fit for weight
-      w <- w[-1,] # Delete intercept
-      int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # For each lambda point, on pre-treatment outcome
-      e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Dimensions?: Columns: lambdas, Rows: T1 (periods after intervention)
-      err[i - 1,] <- colMeans(e ^ 2) # SSR for this error term for each lambda point
+      w <- w[-1,] # Delete intercept since it was forced to be zero anyways
+      int <- t(as.matrix(apply(Z1_tr[,rep(1, nlambda)] - Z0_tr %*% w, 2, mean))) # Calculate intercept as mean deviation between fit and true pre-treatment outcomes
+      e <- Z1_te[,rep(1, nlambda)] - int[rep(1, T1),] - Z0_te %*% w # Get post-treatment error for each lambda point
+      err[i - 1,] <- colMeans(e ^ 2) # SSR (over post-treatment time periods) for this control unit for each lambda point
     }
     
-    # Optimal lambda
-    err <- apply(err, 2, mean) # mean error over all control units
+    # Find optimal lambda
+    err <- apply(err, 2, mean) # Mean error over all control units
     ind_opt <- which.min(err) # Find lambda that minimizes error
     err_alpha[j] <- err[ind_opt] # Save that error for this alpha
-    lambda_opt_alpha[j] <- lambda_grid[ind_opt] # Save the corresponding lambda value
+    lambda_opt_alpha[j] <- lambda_grid[ind_opt] # Save the corresponding optimal lambda value
   }
   
   
-  # Determine optimal alpha and lambda
+  # Determine optimal alpha 
   ind_opt <- which.min(err_alpha) # Find alpha that minimizes error
-  alpha_opt <- alpha_grid[ind_opt]
+  alpha_opt <- alpha_grid[ind_opt] # Save the corresponding optimal alpha value
   lambda_opt <- lambda_opt_alpha[ind_opt] # Find associated lambda value
   
-  # OUTPUT
+  # OUTPUT: optimal alpha and lambda
   out <- list("alpha"= alpha_opt, "lambda"= lambda_opt)
 }
 
+# Function to find the optimal tuning parameters (i.e. number of control units in set) for the best subset fit
 tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   
   ## INPUT:
@@ -276,7 +280,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   # Y: matrix of outcome variables for treated unit and controls 
   # Z: matrix of pre-treatment outcomes for treated unit and controls 
   # X: matrix of covariates for treated unit and controls 
-  # ind_treatment: indicator which unit is the treatment unit
+  # ind_treatment: indicator which unit is the treatment unit in Y,Z and X matrices
   
   ## OUTPUT:
   #
@@ -287,15 +291,14 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   T <- dim(Y)[1] # Number of time periods
   T0 <- dim(Z)[1] # Time of intervention
   T1 <- T - T0 # Number of time periods after intervention
-  T0_tr <- floor(T0 * 2 / 3) # what is this?? - here it is actually used
-  
+  T0_tr <- floor(T0 * 2 / 3) # Trimmed T0 value to prevent overfitting if N ~ T0
   
   # Normalize predictors
   #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
   #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
   # Add back if needed!
   
-  # Rearrange matrices to have treated unit first
+  # Rearrange matrices to have treated unit first to make the following procedure easier to generalize
   Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
   Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
   X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
