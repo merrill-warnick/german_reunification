@@ -20,28 +20,59 @@ d <- read.dta("repgermany.dta")
 ########## Estimates and Standard Errors ##########
 ###################################################
 
+
+
+# prep_params[[1]] = pred: vector containing string with predictor variables 
+# prep_params[[2]] = dep: string specifying which one is dependent variable
+# prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
+# prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
+# prep_names[[5]] = spec: list of special predictors
+
+# prep_names[[6]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
+# prep_names[[7]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
+#                                            [3]: start time optimize ssr, [4]: end time optimize ssr
+#                                            [5]: start time plot, [6]: end time plot
+# prep_names[[8]] = names: unit names variable (which column in data frame specifies unit names!)
+
+prep_params_list <- list(c("gdp","trade","infrate"),
+                         "gdp",1,3,list(
+                           list("industry" ,1981:1990, c("mean")),
+                           list("schooling",c(1980,1985), c("mean")),
+                           list("invest80" ,1980, c("mean"))
+                         ),unique(d$index)[-7], c(1981,1990,1960,1989,1960,2003),2)
+
+
 # Get estimates and standard errors
 fit_elastic_net <- general_estimate(d, method = "elastic_net", 
-                                    prep_params= list(c("gdp","trade","infrate"),
-                                                      "gdp",1,3,list(
-                                                        list("industry" ,1981:1990, c("mean")),
-                                                        list("schooling",c(1980,1985), c("mean")),
-                                                        list("invest80" ,1980, c("mean"))
-                                                      ),
-                                                      7,7,unique(d$index)[-7],
-                                                      c(1981,1990,1960,1989,1960,2003),2), 
-                                    special_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                    prep_params= prep_params_list, 
+                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                             seq(from = 2e-01, to = 100, by = 1e-01), 
-                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
+                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)),
+                                                      ind_treatment=7)
 fit_constr_reg <- general_estimate(d, method = "constr_reg", 
-                                    prep_params= list(c("gdp","trade","infrate"),
-                                                      "gdp",1,3,list(
-                                                        list("industry" ,1981:1990, c("mean")),
-                                                        list("schooling",c(1980,1985), c("mean")),
-                                                        list("invest80" ,1980, c("mean"))
-                                                      ),
-                                                      7,7,unique(d$index)[-7],
-                                                      c(1981,1990,1960,1989,1960,2003),2))
+                                    prep_params= prep_params_list, ind_treatment=7)
+
+
+
+tune_spec_predict <- list(
+  list("industry" ,1971:1980, c("mean")),
+  list("schooling",c(1970,1975), c("mean")),
+  list("invest70" ,1980, c("mean"))
+  )
+
+tune_years <- c(1971, 1980, 1981, 1990, 1960, 2003)
+
+
+#getting the estimate works. Still need to check standard errors. Is our plan to run the standard error code _inside_ the general_estimate funciton?
+fit_synth <- general_estimate(d, method = "synth", 
+                                   prep_params= prep_params_list,
+                                    tune_params = list(tune_spec_predict, tune_years), 7)
+
+
+#we can put it inside the other function but for now I'm just going to do this.
+
+source('functions.R')
+se_synth <- general_se(d, method="synth", se_method="units_time", prep_params=prep_params_list, tune_params=list(tune_spec_predict, tune_years),  ind_treatment=7)
 
 #################################
 ########## Save Values ##########
