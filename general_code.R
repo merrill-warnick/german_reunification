@@ -7,18 +7,54 @@ library(ggplot2)
 
 source('functions.R')
 
-##############################
-########## Dataprep ##########
-##############################
-# Here or in general_estimate function?? Tbd
+# Load data
+d <- read.dta("repgermany.dta")
 
+################################
+########## Parameters ##########
+################################
+
+# Maybe needed, maybe not?
 
 ###################################################
 ########## Estimates and Standard Errors ##########
 ###################################################
 
 # Get estimates and standard errors
+fit_elastic_net <- general_estimate(d, method = "elastic_net", 
+                                    prep_params= list(c("gdp","trade","infrate"),
+                                                      "gdp",1,3,list(
+                                                        list("industry" ,1981:1990, c("mean")),
+                                                        list("schooling",c(1980,1985), c("mean")),
+                                                        list("invest80" ,1980, c("mean"))
+                                                      ),
+                                                      unique(d$index)[-7],
+                                                      c(1981,1990,1960,1989,1960,2003),2), 
+                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                                         seq(from = 2e-01, to = 100, by = 1e-01), 
+                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)),
+                                    ind_treatment = 7)
+fit_constr_reg <- general_estimate(d, method = "constr_reg", 
+                                   prep_params= list(c("gdp","trade","infrate"),
+                                                     "gdp",1,3,list(
+                                                       list("industry" ,1981:1990, c("mean")),
+                                                       list("schooling",c(1980,1985), c("mean")),
+                                                       list("invest80" ,1980, c("mean"))
+                                                     ),
+                                                     unique(d$index)[-7],
+                                                     c(1981,1990,1960,1989,1960,2003),2),
+                                   ind_treatment = 7)
 
+fit_subs <- general_estimate(d, method = "best_subset", 
+                             prep_params= list(c("gdp","trade","infrate"),
+                                               "gdp",1,3,list(
+                                                 list("industry" ,1981:1990, c("mean")),
+                                                 list("schooling",c(1980,1985), c("mean")),
+                                                 list("invest80" ,1980, c("mean"))
+                                               ),
+                                               unique(d$index)[-7],
+                                               c(1981,1990,1960,1989,1960,2003),2),
+                             ind_treatment = 7)
 
 #################################
 ########## Save Values ##########
@@ -27,37 +63,37 @@ source('functions.R')
 # Save matrices for future reference and plots
 
 # Elastic Net 
-save(list = c("w", "int", "Y_est", "Y_true", 
-              "std_err_i", "std_err_t", "std_err_it"), 
-     file = "germ_elast_nocov.RData")
+#save(list = c("w", "int", "Y_est", "Y_true", 
+#              "std_err_i", "std_err_t", "std_err_it"), 
+#     file = "germ_elast_nocov.RData")
 writeMat("germ_elast_nocov.mat", 
-         w = w_elast, int = int_elast, 
-         Y_est = Y_est_elast, Y_true = Y_true, 
-         std_err_i = std_err_i_elast, 
-         std_err_t = std_err_t_elast, 
-         std_err_it = std_err_it_elast)
+         w = fit_elastic_net$w, int = fit_elastic_net$int, 
+         Y_est = fit_elastic_net$Y_est, Y_true = fit_elastic_net$Y_true, 
+         std_err_i = fit_elastic_net$std_err_i, 
+         std_err_t = fit_elastic_net$std_err_t, 
+         std_err_it = fit_elastic_net$std_err_it)
 
 # Best subset 
-save(list = c("w", "int", "Y_est", "Y_true", 
-              "std_err_i", "std_err_t", "std_err_it"), 
-     file = "germ_subs_nocov.RData")
+#save(list = c("w", "int", "Y_est", "Y_true", 
+#              "std_err_i", "std_err_t", "std_err_it"), 
+#     file = "germ_subs_nocov.RData")
 writeMat("germ_subs_nocov.mat", 
-         w = w_subs, int = int_subs, 
-         Y_est = Y_est_subs, Y_true = Y_true, 
-         std_err_i = std_err_i_subs, 
-         std_err_t = std_err_t_subs, 
-         std_err_it = std_err_it_subs)
+         w = fit_subs$w, int = fit_subs$int, 
+         Y_est = fit_subs$Y_est, Y_true = fit_subs$Y_true, 
+         std_err_i = fit_subs$std_err_i, 
+         std_err_t = fit_subs$std_err_t, 
+         std_err_it = fit_subs$std_err_it)
 
 # Constrained regression
-save(list = c("w", "int", "Y_est", "Y_true", 
-              "std_err_i", "std_err_t", "std_err_it"), 
-     file = "germ_constr_reg_nocov.RData")
+#save(list = c("w", "int", "Y_est", "Y_true", 
+#              "std_err_i", "std_err_t", "std_err_it"), 
+#     file = "germ_constr_reg_nocov.RData")
 writeMat("germ_constr_reg_nocov.mat", 
-         w = w_constr_reg, int = int_constr_reg, 
-         Y_est = Y_est_constr_reg, Y_true = Y_true, 
-         std_err_i = std_err_i_constr_reg, 
-         std_err_t = std_err_t_constr_reg, 
-         std_err_it = std_err_it_constr_reg)
+         w = fit_constr_reg$w, int = fit_constr_reg$int, 
+         Y_est = fit_constr_reg$Y_est, Y_true = fit_constr_reg$Y_true, 
+         std_err_i = fit_constr_reg$std_err_i, 
+         std_err_t = fit_constr_reg$std_err_t, 
+         std_err_it = fit_constr_reg$std_err_it)
 
 ###########################
 ########## Plots ##########
@@ -68,6 +104,7 @@ data_did <- readMat('germ_did_nocov.mat')
 data_elast <- readMat('germ_elast_nocov.mat')
 data_subset <- readMat('germ_subs_nocov.mat')
 data_synth <- readMat('germ_synth.mat')
+data_constr <- readMat('germ_constr_reg_nocov.mat')
 
 ### Treatment figure
 plot(1960:2003, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "West Germany: per capita GDP", xlab = "Year", ylab = "", las = 1, bty = 'L')
@@ -106,25 +143,25 @@ abline(v = 2002, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Counterfactual
-tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_synth$Y.synth.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)],data_synth$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_elast$Y.elast.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]) # cbind for each method
-std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
+#tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_synth$Y.synth.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)],data_synth$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_elast$Y.elast.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]) # cbind for each method
+#std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
 
-plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
-lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
-lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
-lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
-lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
-lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
-abline(h = 0, col= "black")
-abline(v = 1982, col = "grey96")
-abline(v = 1983, col = "grey96")
-abline(v = 1984, col = "grey96")
-abline(v = 1985, col = "grey96")
-abline(v = 1986, col = "grey96")
-abline(v = 1987, col = "grey96")
-abline(v = 1988, col = "grey96")
-abline(v = 1989, col = "grey96")
-legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
+#plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
+#lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
+#lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
+#lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
+#lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
+#lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
+#abline(h = 0, col= "black")
+#abline(v = 1982, col = "grey96")
+#abline(v = 1983, col = "grey96")
+#abline(v = 1984, col = "grey96")
+#abline(v = 1985, col = "grey96")
+#abline(v = 1986, col = "grey96")
+#abline(v = 1987, col = "grey96")
+#abline(v = 1988, col = "grey96")
+#abline(v = 1989, col = "grey96")
+#legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Weights
 weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)
