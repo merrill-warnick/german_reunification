@@ -53,8 +53,23 @@ tune_synth_spec <- list(
 )
   
 tune_synth_years <- c(1971, 1980, 1981, 1990, 1960, 2003)
+source('functions.R')
+fit_synth <- general_estimate(d, method = "synth", 
+                             prep_params = prep_params_list,
+                             tune_params = list(tune_synth_spec , tune_synth_years),
+                             ind_treatment = 7)
 
-fit_synth <- general_estimate(d, method = "best_subset", 
+se_synth_unit <- general_se(d, method = "synth", se_method <- "unit", 
+                              prep_params = prep_params_list,
+                              tune_params = list(tune_synth_spec , tune_synth_years),
+                              ind_treatment = 7)
+
+se_synth_time <- general_se(d, method = "synth", se_method <- "time", 
+                             prep_params = prep_params_list,
+                             tune_params = list(tune_synth_spec , tune_synth_years),
+                             ind_treatment = 7)
+
+se_synth_it <- general_se(d, method = "synth", se_method <- "unit_time", 
                              prep_params = prep_params_list,
                              tune_params = list(tune_synth_spec , tune_synth_years),
                              ind_treatment = 7)
