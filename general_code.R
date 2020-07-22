@@ -20,40 +20,43 @@ d <- read.dta("repgermany.dta")
 ########## Estimates and Standard Errors ##########
 ###################################################
 
+prep_params_list = list(c("gdp","trade","infrate"),
+                  "gdp",1,3,list(
+                    list("industry" ,1981:1990, c("mean")),
+                    list("schooling",c(1980,1985), c("mean")),
+                    list("invest80" ,1980, c("mean"))
+                  ),
+                  unique(d$index)[-7],
+                  c(1981,1990,1960,1989,1960,2003),2)
+
 # Get estimates and standard errors
 fit_elastic_net <- general_estimate(d, method = "elastic_net", 
-                                    prep_params= list(c("gdp","trade","infrate"),
-                                                      "gdp",1,3,list(
-                                                        list("industry" ,1981:1990, c("mean")),
-                                                        list("schooling",c(1980,1985), c("mean")),
-                                                        list("invest80" ,1980, c("mean"))
-                                                      ),
-                                                      unique(d$index)[-7],
-                                                      c(1981,1990,1960,1989,1960,2003),2), 
+                                    prep_params= prep_params_list, 
                                     tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                          seq(from = 2e-01, to = 100, by = 1e-01), 
                                                          seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)),
                                     ind_treatment = 7)
 fit_constr_reg <- general_estimate(d, method = "constr_reg", 
-                                   prep_params= list(c("gdp","trade","infrate"),
-                                                     "gdp",1,3,list(
-                                                       list("industry" ,1981:1990, c("mean")),
-                                                       list("schooling",c(1980,1985), c("mean")),
-                                                       list("invest80" ,1980, c("mean"))
-                                                     ),
-                                                     unique(d$index)[-7],
-                                                     c(1981,1990,1960,1989,1960,2003),2),
+                                   prep_params= prep_params_list,
+                                                     
                                    ind_treatment = 7)
 
 fit_subs <- general_estimate(d, method = "best_subset", 
-                             prep_params= list(c("gdp","trade","infrate"),
-                                               "gdp",1,3,list(
-                                                 list("industry" ,1981:1990, c("mean")),
-                                                 list("schooling",c(1980,1985), c("mean")),
-                                                 list("invest80" ,1980, c("mean"))
-                                               ),
-                                               unique(d$index)[-7],
-                                               c(1981,1990,1960,1989,1960,2003),2),
+                            prep_params = prep_params_list,
+                             ind_treatment = 7)
+
+
+tune_synth_spec <- list(
+  list("industry", 1971:1980, c("mean")),
+  list("schooling",c(1970,1975), c("mean")),
+  list("invest70" ,1980, c("mean"))
+)
+  
+tune_synth_years <- c(1971, 1980, 1981, 1990, 1960, 2003)
+
+fit_synth <- general_estimate(d, method = "best_subset", 
+                             prep_params = prep_params_list,
+                             tune_params = list(tune_synth_spec , tune_synth_years),
                              ind_treatment = 7)
 
 #################################
