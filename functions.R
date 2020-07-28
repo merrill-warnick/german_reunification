@@ -22,115 +22,116 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
   
   ## INPUT:
   #
-  # data: specify whether just frame 
-  # method: "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
-  # special_params: list of lambda grid and alpha grid over which we are optimizing; special_params = list(lambda_grid,alpha_grid)
-  
-  #prep parameters is the vector for data prep
-  
-  # I think I'll change it so that we have a special_parameters input?
-  #then it will have lambda_grid/alpha_grid and all of the parameters for synth
-  #but it's null by default?
-  # Yeah that's fine
-  
-  # Are we going to make it so that the user doesn't have to plug in inputs for the methods they don't use?
-  # Yes! So special_params should be NULL by default indeed if we don't pick elastic net as a default method
-  # But that's the only thing that should be by default, right?
+  # data_df:        The input dataframe 
+  # method:         "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
+  # prep_params:    vector of parameters for dataprep. The inputs needed are explained in the prep_data function
+  # tune_params:    vector of parameters needed for methods that need cross-validation for tuning parameters.
+  #                   for elastic_net, it should have an alpha grid and a lambda grid
+  #                   for synth, it should have a vector of special predictors for dataprep and a year vector (replacing inputs 5 and 7 of prep_params)
+  # ind_treatment:  the column that corresponds to the treated unit
   
   ## OUTPUT:
   #
-  # int: estimated intercept
-  # w: estimated weights
-  # Y_est: fitted Y values
-  # Y_true: true Y-values
-  # alpha_opt: optimal alpha (if method is elastic net)
-  # lambda_opt: optimal lambda (if method is elastic net)
-  # n_opt: optimal number of control units (if method is best subset)
-  # std_err_i: standard error over units
-  # std_err_t: standard error over time
-  # std_err_it: standard error over unit and time
-  # T_0: time point of intervention
-  # T_1: time points after intervention
+  # int:            estimated intercept
+  # w:              estimated weights
+  # Y_est:          fitted Y values
+  # Y_true:         true Y-values
+  # alpha_opt:      optimal alpha (if method is elastic net)
+  # lambda_opt:     optimal lambda (if method is elastic net)
+  # n_opt:          optimal number of control units (if method is best subset)
+  # std_err_i:      standard error over units
+  # std_err_t:      standard error over time
+  # std_err_it:     standard error over unit and time
+  # T_0:            time point of intervention
+  # T_1:            time points after intervention
   
   # Make sure that one of the methods that is feasible is specified
   if(is.null(method) && method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset"){
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
-    ####
-    # Dataprep
     
-    # prep_params[[1]] = pred: vector containing string with predictor variables 
-    # prep_params[[2]] = dep: string specifying which one is dependent variable
-    # prep_params[[3]] = u: integer identifying unit variable (which column in data frame specifies index!)
-    # prep_names[[4] = t: integer identifying time variable (which column in data frame specifies time!)
-    # prep_names[[5]] = spec: list of special predictors
-    # prep_names[[]] = i: treatment identifier -> should be just ind_treatment, no? then can delete as separate input in function I guess
+    ################ Prepare data ################
     
-    # prep_names[[6]] = subs: together with j identifies control identifiers -> should we just give it as a single input?
-    # prep_names[[7]] = years: vector specifying [1]: start predictor priors, [2]: end predictor priors
-    #                                            [3]: start time optimize ssr, [4]: end time optimize ssr
-    #                                            [5]: start time plot, [6]: end time plot
-    # prep_names[[8]] = names: unit names variable (which column in data frame specifies unit names!)
-    
+    #prep_data uses the dataprep function to make the data usable for most of the methods. See the prep_data function for information on the inputs.
     data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
+    
+    #extract data from the output of prep_data to use with later functions
     Y<- data$Y
     Z<- data$Z
     X<- data$X
     
-    ####
-    # Get weights
+    ################ Find weights ################
     
-    # Elastic Net: Find tuning parameters and weights
+    # Elastic Net
     if(method == "elastic_net"){
+      
+      #find tuning parameters using cross-validation
       params <- tuning_parameters_elastic_net(Y,Z,X, tune_params[[1]], tune_params[[2]])
+      
+      #find imputed Y weights using the tuning parameters we found
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
     }
     
-    #synthetic control: find tuning parameters and weights
+    #synthetic control
     if(method == "synth"){
       
-      #so tune_params[[1]] needs to be the special predictors and tune_params[[2]] needs to be the vector of years.
+      #find tuning parameters (vweights)
       v <- tuning_parameters_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
+      
+      #use vweights to find synthetic control weights
       w <- find_weights_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], v)
     }
     
-    # Best subset: Find tuning parameter and weights
+    # Best subset
     if(method == "best_subset"){
+      
+      #find the optimal value for n
       n_opt <- tuning_parameters_best_subset(Y,Z,X)
+      
+      #find the best subset using the n_opt from the previous part
       w <- find_weights_subset(Y,Z,X,n_opt)
     }
     
-    # Diff-in-diff: Find weights
+    # Diff-in-diff: 
     if (method == "diff_in_diff"){
+      
+      #find diff-in-diff weights (simply by using 1/N-1). We use the extra function step for consistency and readability
       w <- find_weights_did(Y, Z, X)
     }
     
-    # Constrained regression: Find weights
+    # Constrained regression:
     if(method == "constr_reg"){
+      
+      #find weights using constrained regression
       w <- find_weights_constr_reg(Y,Z,X)
     }
     
-    ###
-    # Get estimate
     
-    #I'm a little bt worried that this isn't going to play nicely with the synth stuff? I'll just deal with that when I actually start running the code.
-    #possible bug alert her etho for synth. maybe we need to do the ALL option so that we get Y0 and Y1 out of it or something? that actually might be easiest,
-    #I'll decide tomorrow
+    ################ Get estimate ################
+    
+    #since synth output is different from output in other methods, we need to calculate Y_est and pick out Y_true differently.
     if(method=="synth"){
+      
+      #estimated Y using the intercept (which should be zero from synth) and the synthetic weights
       Y_est = rep(w$intercept,nrow(Y)) + w$Y0%*%w$weights
       Y_true = w$Y1
     }else{
+      
+      #in other cases we can simply use the Y matrix we constructed earlier.
       Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
       Y_true = Y[,1]
     }
-    ###
-    # Get standard error
+    
+    ################ Find Standard Error ################
+    #############This section might occur separately. Eventually we may add it to this function ##############
+    
     std_err_i = 0
     std_err_t = 0
     std_err_it = 0
     
-    ###
-    # Output
+    
+    ################ Output ################
+    
     if(method == "elastic_net"){
       out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
     }else{
@@ -150,8 +151,33 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
 ##### Auxiliary functions #####
 ###############################
 
+
+#Prepare the data for finding tuning parameters and weights
 prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, names){
   
+  # INPUT 
+  #
+  #Note: We could likely write this for dataframes that don't have string identifiers and just have numeric identifiers
+  #
+  # prep_params[[1]]  = pred: vector containing string with predictor variables. (This becomes X)
+  # prep_params[[2]]  = dep: string specifying which one is dependent variable. (This becomes Y and Z)
+  # prep_params[[3]]  = u: integer identifying unit variable (which column in data frame specifies index)
+  # prep_names[[4]]   = t: integer identifying time variable (which column in data frame specifies time)
+  # prep_names[[5]]   = spec: list of special predictors (also becomes X)
+  # prep_names[[6]]   = subs: vector of the columns for control units.
+  # prep_names[[7]]   = years: vector specifying years or another time variable as follows  
+  #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
+  #                             [3]: start of prior period, [4]: end of prior period (should be the treatment year) (these years determine what years are in Z)
+  #                             [5]: start time plot, [6]: end time plot  (probably just your whole time period)                                                       
+  # prep_names[[8]]   = names: unit names variable (which column in data frame specifies unit names)
+  
+  # OUTPUT
+  #
+  # X: matrix of non-outcome predictors
+  # Y: matrix of outcomes
+  # Z: matrix of prior period outcomes to be used as the main predictors
+  
+  #run dataprep (from the synth package) to prepare the data
   dataprep.out <-
     dataprep(
       foo = d,
@@ -167,9 +193,8 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
       unit.names.variable = names,
       time.plot = years[5]:years[6]
     )
-  
-  #######################################
-  #prepping the pieces
+
+  #Extract the treatment and control units from the dataprep object  
   X0 <- dataprep.out$X0
   X1 <- dataprep.out$X1
   
@@ -178,6 +203,8 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
   
   Y1 <- dataprep.out$Y1plot
   Y0 <- dataprep.out$Y0plot
+  
+  #Re-bind data so that the treated unit is in the first position
   # [X1,X0]
   X <- cbind(X1, X0)
   
@@ -187,39 +214,41 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
   # [Z1,Z0]
   Z <- cbind(Z1, Z0)
   
-  datlist <- list( x <- X, y <- Y, z <- Z)
-  names(datlist) <- c( "X", "Y", "Z")
-  output<-datlist
+  output <- list( "X" <- X, "Y" <- Y, "Z" <- Z)
 }
 
-# Function to find the optimal tuning parameters (i.e. alpha and lambda value) for the elastic net fit
+# Find optimal tuning parameters (alpha and lambda values) for the elastic net fit
 tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_treatment=1){
   
-  ## INPUT:
+  # INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls 
-  # Z: matrix of pre-treatment outcomes for treated unit and controls 
-  # X: matrix of covariates for treated unit and controls 
-  # lambda_grid: pre-specified lambda grid over which we are optimizing
-  # alpha_grid: pre-specified alpha grid over which we are optimizing
-  # ind_treatment: indicator which unit is the treatment unit in Y,Z and X matrices
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # lambda_grid:    pre-specified lambda grid over which we are optimizing
+  # alpha_grid:     pre-specified alpha grid over which we are optimizing
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
   
-  ## OUTPUT:
+  # OUTPUT:
   #
-  # alpha: optimal alpha
+  # alpha:  optimal alpha
   # lambda: optimal lambda
   
-  # Parameters
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
+  ################ Find parameters using inputted data ################
+  
+  N <- dim(Y)[2]  # Number of units
+  T <- dim(Y)[1]  # Number of time periods
   T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
-  nlambda <- length(lambda_grid) # Length of lambda grid
-  na <- length(alpha_grid) # Length of alpha grid
-  err_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store error terms associated with each value of alpha
-  lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1) # Matrix to store optimal lambda associated with each alpha
+  T1 <- T - T0    # Number of time periods after intervention
+  
+  nlambda <- length(lambda_grid)  # Length of lambda grid
+  na <- length(alpha_grid)        # Length of alpha grid
+  
+  err_alpha <- matrix(0, nrow = na, ncol = 1)         # Matrix to store error terms associated with each value of alpha
+  lambda_opt_alpha <- matrix(0, nrow = na, ncol = 1)  # Matrix to store optimal lambda associated with each alpha
   
   # Rearrange matrices to have treated unit first to make the following procedure easier to generalize
+  # In the general code, this will already have happened, but it's good to make sure this happens in case we run this function by itself
   
   Y <- as.matrix(cbind(Y[,ind_treatment], Y[,-ind_treatment]))
   Z <- as.matrix(cbind(Z[,ind_treatment], Z[,-ind_treatment]))
@@ -227,8 +256,10 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   
   # LOOP:
   for (j in 1:na) { # Iterate over alpha points
+    
     a <- alpha_grid[j]
     err <- matrix(0, nrow = N - 1, ncol = nlambda) # Matrix for storage of error terms for each control unit and all lambda values
+    
     for (i in 2:N) { # iterate over units
       
       # Determine matrices appropriately
