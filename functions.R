@@ -165,6 +165,7 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
   # prep_names[[4]]   = t: integer identifying time variable (which column in data frame specifies time)
   # prep_names[[5]]   = spec: list of special predictors (also becomes X)
   # prep_names[[6]]   = cont_set: vector of the columns for control units.
+  # prep_names[[6]]   = subs: vector of the columns for control units.
   # prep_names[[7]]   = years: vector specifying years or another time variable as follows  
   #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
   #                             [3]: start of prior period, [4]: end of prior period (should be the treatment year) (these years determine what years are in Z)
