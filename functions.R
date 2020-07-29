@@ -757,9 +757,37 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
 
 
 general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tune_params=NULL,  ind_treatment=1){
+  
+  # INPUT
+  #
+  # data:           if method=="synth", this should be a dataframe. Otherwise, data should be a list with X in the first slot, Y in the second, and Z in the third, where X, Y, Z are as in above functions.
+  # method:         weights imputation method to be used. Could be "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"
+  # se_method:      chooses whether we're calculating as if the randomness were across units, across time, or both. Should be "unit", "time", or "unit_time". We may end up spitting out all values simulatneously
+  # prep_params:    see the description of prep_parameters in general_estimate and prep_data functions
+  # tune_params:    need tuning parameters for synth, best_subset and elastic_net. Currently, elastic net doesn't re-select tuning parameters for each loop, so simply
+  #                     supply the optimal values for alpha and lambda found with the original run of tuning_parameters_elastic_net. Similarly, for best_subset, we currently
+  #                     just re-use the optimal subset size for the orignal problem. Eventually, we might change tune_parameters for synth so that we supply the initial
+  #                     v-weights found. However, currently, tune_params will match the tune_params used for synth in general_estimate
+  # ind_treatment:  column indicator for the treated unit
+  #
+  #
+  # OUTPUT
+  #
+  # se: the calculated standard error
+  
+  #must supply a supported method
   if(is.null(method) || (method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset")){
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
-  }else{
+  }
+  
+  #must supply a supported standard error method
+  if(se_method!="unit" && se_method!="time" && se_method!="unit_time"){
+    stop('Please specify one of the following methods for standard error calculation: "unit", "time" or "unit_time"')
+    }else{
+      
+    ######################### Calculate standard errors for synthetic control ########################
+      
+    #since synthetic control uses the original dataframe and more parameters, we have separate functions for synthetic control standard errors
     if(method=="synth"){
       if(se_method=="unit"){
         se <- se_unit_synth(data, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
@@ -771,11 +799,15 @@ general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tu
         se <- se_it_synth(data, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
       }
     }else{
-      #pick this out to just make it very clear, don't actually have to pick it out
+      
+      ##################### Calculate standard errors for other methods ########################
+      
+      #pick the data out to plug into the general functions
       X<-data[[1]]
       Y<-data[[2]]
       Z<-data[[3]]
       
+      #for all non-synth methods, the se algorithm works very smoothly, so we can unify these functions
       if(se_method=="unit"){
         se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
       }
