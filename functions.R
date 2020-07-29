@@ -410,7 +410,7 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
   
   # INPUT 
   #
-  #Note: Most of the later inputs match input descriptions for prep_data
+  # Note: Most of the later inputs match input descriptions for prep_data
   #
   # pred: vector containing string with predictor variables. (This becomes X)
   # dep: string specifying which one is dependent variable. (This becomes Y and Z)
@@ -421,7 +421,7 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
   # years: vector specifying years or whatever time variable used. In general, these are similar to the years from prep_data, but should be adjusted to match whatever
   #           set of years you've decided to cross-validate with to find the v-weights.
   #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
-  #                             [3]: start of prior period, [4]: end of prior period (should be the treatment year) (these years determine what years are in Z)
+  #                             [3]: start of prior period, [4]: end of prior period (these years determine what years are in Z)
   #                             [5]: start time plot, [6]: end time plot  (probably just your whole time period)                                                       
   # names: unit names variable (which column in data frame specifies unit names)
   #
@@ -429,7 +429,7 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
   #
   # v-weights for synthetic control in the next step
   
-  #Put the data into a dataprep structure
+  ############# Put the data into a dataprep structure ####################
   dataprep.out <-
     dataprep(
       
@@ -447,7 +447,7 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
       time.plot = years[5]:years[6]
     )
   
-  #fit training model to extract v-weights, which synth automatically calculates
+  ############## Fit data to extract vweights ####################
   synth.out <- 
     synth(
       data.prep.obj=dataprep.out,
@@ -455,7 +455,7 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
       Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
     )
   
-  #output the vweights that synth found
+  ############# output vweights ####################
   output <- synth.out$solution.v
   return(output)
 }
@@ -518,7 +518,30 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
 
 
 #Function to find weights using synthetic control
-find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names, vweight, yinclude){
+find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names, vweight){
+  # INPUT 
+  #
+  #The inputs are the same as for tuning_parameters_synth except that the special predictor set might be different,
+  #   the years should differ, and you need to supply a set of vweights that comes from tuning_parameters_synth. The years
+  #   *will* be the same years as used in data_prep
+  #
+  # pred: vector containing string with predictor variables. (This becomes X)
+  # dep: string specifying which one is dependent variable. (This becomes Y and Z)
+  # u: integer identifying unit variable (which column in data frame specifies index)
+  # t: integer identifying time variable (which column in data frame specifies time)
+  # spec: list of special predictors (also becomes X)
+  # cont_set: vector of the columns for control units.
+  # years: vector specifying years or whatever time variable used. These will be the same years as the years you use for data_prep
+  #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
+  #                             [3]: start of prior period, [4]: end of prior period (should be the treatment year) (these years determine what years are in Z)
+  #                             [5]: start time plot, [6]: end time plot  (probably just your whole time period)                                                       
+  # names: unit names variable (which column in data frame specifies unit names)
+  #
+  # OUTPUT
+  #
+  # v-weights for synthetic control in the next step
+  
+  ############# Put the data into a dataprep structure ####################
   
   dataprep.out <-
     dataprep(
@@ -537,7 +560,7 @@ find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set
      time.plot = years[5]:years[6]
     )
   
-  
+  ############# Find synthetic control weights ####################
   synth.out <- synth(
     data.prep.obj=dataprep.out,
     custom.v=as.numeric(vweight)
@@ -550,23 +573,23 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls 
-  # Z: matrix of pre-treatment outcomes for treated unit and controls 
-  # X: matrix of covariates for treated unit and controls 
-  # n_opt: optimal number of control units
-  # ind_treatment: indicator which unit is the treatment unit in Y,Z and X matrices
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # n_opt:          optimal number of control units
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
   
   ## OUTPUT:
   #
-  # intercept: intercept resulting from best subset selection fit
-  # weights: weights resulting from best subset selection fit
+  # intercept:  intercept resulting from best subset selection fit
+  # weights:    weights resulting from best subset selection fit
   
-  # Parameters
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
-  T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
-  T0_tr <- floor(T0 * 2 / 3) # Trimmed T0 value to prevent overfitting if N ~ T0
+  ############# Find parameters using the data ####################
+  N <- dim(Y)[2]              # Number of units
+  T <- dim(Y)[1]              # Number of time periods
+  T0 <- dim(Z)[1]             # Time of intervention
+  T1 <- T - T0                # Number of time periods after intervention
+  T0_tr <- floor(T0 * 2 / 3)  # Trimmed T0 value to prevent overfitting if N ~ T0
   
   
   # Normalize predictors
@@ -593,7 +616,7 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   X1 <- as.matrix(X[,i])
   X0 <- as.matrix(X[,-i])
   
-  # Find optimal subset of size n_opt
+  ############# Find optimal subset of size n ####################
   V1 <- Z1
   subs_n <- combn(c(1:(N - 1)), n_opt, simplify = FALSE) 
   int_s <- matrix(0, nrow = 1, ncol = length(subs_n))
@@ -609,12 +632,10 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
     err_cur[j,1] <- mean((V1 - V0 %*% w_cur) ^ 2)
   }
   
-  # Optimal subset
+  # Pick out optimal subset
   j_opt <- which.min(err_cur)
   
-  ###########################
-  ####### Fit Model #########
-  ###########################
+  ############# Fit Model ####################
   
   # Pick fitted intercept and weights from optimal subset
   int <- as.matrix(int_s[1,j_opt])
@@ -624,10 +645,29 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   out <- list("intercept" = int, "weights" =w)
 }
 
+#find weights for difference-in-differences
 find_weights_did <- function(Y, Z, X, ind_treatment=1){
+  
+  ## INPUT:
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
+  
+  ## OUTPUT:
+  #
+  # intercept:  intercept resulting from diff-in-diff fit
+  # weights:    weights resulting from diff-in-diff fit
+  
+  ########### Find Parameters from the data ###################
   N <- dim(Y)[2]
+  
+  #diff-in-diff weights units equally
   w <- matrix(1 / (N - 1), nrow = N - 1, ncol = 1) 
   int <- as.matrix(mean(Z[,ind_treatment]) - mean(Z[,-ind_treatment]))
+  
+  #output weights
   out <- list("intercept" = int, "weights" = w)
 }
 
@@ -636,21 +676,22 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
   
   ## INPUT:
   #
-  # Y: matrix of outcome variables for treated unit and controls 
-  # Z: matrix of pre-treatment outcomes for treated unit and controls
-  # X: matrix of covariates for treated unit and controls 
-  # ind_treatment: indicator which unit is the treatment unit in Y,Z and X matrices
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls
+  # X:              matrix of covariates for treated unit and controls 
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
   
   ## OUTPUT:
   #
-  # intercept: intercept resulting from constrained regression fit
-  # weights: weights resulting from constrained regression fit
+  # intercept:      intercept resulting from constrained regression fit
+  # weights:        weights resulting from constrained regression fit
   
-  # Parameters
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
-  T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
+  ########### Find Parameters from the data ###################
+  
+  N <- dim(Y)[2]    # Number of units
+  T <- dim(Y)[1]    # Number of time periods
+  T0 <- dim(Z)[1]   # Time of intervention
+  T1 <- T - T0      # Number of time periods after intervention
   
   # Matrices for storage
   int <- matrix(0, nrow = 1, ncol = 1)
@@ -672,7 +713,9 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
   V1 <- Z1
   V0 <- Z0
   
-  # Fit constrained regression
+  ########### Fit Constrained Regression ###################
+  
+  #should we explain this code so that people understand the steps?
   H = t(V0)%*%V0
   f = as.vector(-t(V0)%*%V1)
   
@@ -700,10 +743,6 @@ general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tu
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     if(method=="synth"){
-      
-      #we don't need to worry about getting rid of the treatment columns beforehand. We're telling it exactly what the candidate control set is
-      #and then we tell it what the treatment column is within the functions, so then the dataprep object will only include those columns.
-      
       if(se_method=="unit"){
         se <- se_unit_synth(data, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
       }
@@ -862,10 +901,8 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
 
 se_unit_synth <- function(data, pred, dep, u, t, cspec, spec, cont_set, cyears, years, names){
   
-  #need to check that this works right. only works for one treatment unit. might be a bug spot
   N <- length(cont_set) + 1
   
-  #trust me I think tha these are the right thing
   T <- years[[6]] - years[[5]] + 1
   
   T0 <- years[[4]] - years[[5]] + 1
@@ -877,8 +914,6 @@ se_unit_synth <- function(data, pred, dep, u, t, cspec, spec, cont_set, cyears, 
   for (j in 1:(N - 1)) {
     ind <- cont_set[j]
     
-    #cont_set[-j] should give the list of indicies of control variables EXCEPT for the index of the person we're treating as control (the index int he jth slot)
-    #might need to fix this/debug it.
     vw <- tuning_parameters_synth(data, ind, pred, dep, u, t, cspec, cont_set[-j], cyears, names)
     
     w <- find_weights_synth(data, ind, pred, dep, u, t, spec, cont_set[-j], years, names, vw)
@@ -907,7 +942,6 @@ se_time_synth <- function(data, ind_treatment, pred, dep, u, t, cspec, spec, con
     
     vw <- tuning_parameters_synth(data, ind_treatment, pred, dep, u, t, cspec, cont_set, cyears, names)
     
-    #oh this introduces a problem with years I guess...but we can just do this. might be a bug spot to look at later.
     years_temp <- years
     years_temp[4] <- years[4] - k
     
