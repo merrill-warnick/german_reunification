@@ -10,6 +10,7 @@ library(reshape2)
 library(R.matlab)
 library(Synth)
 library(modopt.matlab)
+library(LowRankQP)
 
 
 # Function to get weights, fitted values and standard errors
@@ -56,9 +57,11 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
     
     #extract data from the output of prep_data to use with later functions
-    Y<- data$Y
-    Z<- data$Z
-    X<- data$X
+    
+    # CHECK HERE AGAIN!!! $Y did not work??
+    Y<- data[[2]]#data$Y
+    Z<- data[[3]]#data$Z
+    X<- data[[1]]#data$X
     
     ################ Find weights ################
     
@@ -125,7 +128,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     ################ Find Standard Error ################
     #############This section might occur separately. Eventually we may add it to this function ##############
     
-    std_err_i = 0
+    std_err_i = general_se <- function(data, method= "constr_reg", se_method="unit")
     std_err_t = 0
     std_err_it = 0
     
@@ -692,7 +695,7 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
   T <- dim(Y)[1]    # Number of time periods
   T0 <- dim(Z)[1]   # Time of intervention
   T1 <- T - T0      # Number of time periods after intervention
-  
+  print(N)
   # Matrices for storage
   int <- matrix(0, nrow = 1, ncol = 1)
   w <- matrix(0, nrow = N - 1, ncol = 1)
