@@ -716,17 +716,32 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
   ########### Fit Constrained Regression ###################
   
   #should we explain this code so that people understand the steps?
-  H = t(V0)%*%V0
-  f = as.vector(-t(V0)%*%V1)
+  #H = t(V0)%*%V0
+  #f = as.vector(-t(V0)%*%V1)
   
-  Aeq = rep(1,N-1)
-  beq = 1
-  lb = rep(0, N-1)
-  ub = rep(1,N-1)
+  #Aeq = rep(1,N-1)
+  #beq = 1
+  #lb = rep(0, N-1)
+  #ub = rep(1,N-1)
   
-  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  #w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
   
-  out <- list("intercept" = 0,"weights"= w$x)
+  #out <- list("intercept" = 0,"weights"= w$x)
+  V <- diag(length(V1))
+  H <- t(V0) %*% V %*% (V0)
+  a <- V1
+  c <- -1 * c(t(a) %*% V %*% (V0))
+  A <- t(rep(1, length(c)))
+  b <- 1
+  l <- rep(0, length(c))
+  u <- rep(1, length(c))
+  r <- 0
+  res <- LowRankQP(Vmat = H, dvec = c, Amat = A, bvec = 1, 
+                   uvec = rep(1, length(c)), method = "LU")
+  w <- as.matrix(res$alpha)
+  
+  out <- list("intercept" = 0,"weights"= w)
+  
 }
 
 #########################################################
