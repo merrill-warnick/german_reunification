@@ -47,7 +47,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
   # T_1:            time points after intervention
   
   # Make sure that one of the methods that is feasible is specified
-  if(is.null(method) && method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset"){
+  if(is.null(method) || (method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset")){
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     
@@ -128,9 +128,9 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     ################ Find Standard Error ################
     #############This section might occur separately. Eventually we may add it to this function ##############
     
-    std_err_i = general_se(data, method= method, se_method="unit")
-    std_err_t = general_se(data, method= method, se_method="time")
-    std_err_it = general_se(data, method= method, se_method="unit_time")
+    std_err_i = 0 #general_se(data, method= method, se_method="unit")
+    std_err_t = 0 #general_se(data, method= method, se_method="time")
+    std_err_it = 0 #general_se(data, method= method, se_method="unit_time")
     
     
     ################ Output ################
@@ -757,7 +757,7 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
 
 
 general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tune_params=NULL,  ind_treatment=1){
-  if(is.null(method) && method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset"){
+  if(is.null(method) || (method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset")){
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     if(method=="synth"){
