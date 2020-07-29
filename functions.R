@@ -754,9 +754,9 @@ general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tu
       }
     }else{
       #pick this out to just make it very clear, don't actually have to pick it out
-      Y<-data[[1]]
-      Z<-data[[2]]
-      X<-data[[3]]
+      X<-data[[1]]
+      Y<-data[[2]]
+      Z<-data[[3]]
       
       if(se_method=="unit"){
         se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
