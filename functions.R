@@ -148,8 +148,6 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
 }
 
 
-
-
 ###############################
 ##### Auxiliary functions #####
 ###############################
