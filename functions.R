@@ -128,9 +128,9 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     ################ Find Standard Error ################
     #############This section might occur separately. Eventually we may add it to this function ##############
     
-    std_err_i = general_se <- function(data, method= "constr_reg", se_method="unit")
-    std_err_t = 0
-    std_err_it = 0
+    std_err_i = general_se(data, method= method, se_method="unit")
+    std_err_t = general_se(data, method= method, se_method="time")
+    std_err_it = general_se(data, method= method, se_method="unit_time")
     
     
     ################ Output ################
