@@ -212,7 +212,7 @@ Z_r <- cbind(Z0[,1], Z1,Z0[,-1])
 
 source('functions.R')
 output <- find_weights_subset(Y_r,Z_r,X_r, ind_treatment = 2)
-output_2 <- find_weights_constr_reg(Y_r,Z_r,X_r, ind_treatment = 2)
+output_2 <- find_weights_constr_reg(Y,Z,X, ind_treatment = 1)
 
 
 #################################

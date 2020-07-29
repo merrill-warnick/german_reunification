@@ -263,7 +263,7 @@ find_weights_did <- function(Y, Z, X, ind_treatment){
 }
 
 
-find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
+#find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   ## INPUT:
   #
   # Y: matrix of outcome variables for treated unit and controls 
@@ -277,11 +277,66 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   # weights: weights resulting from constrained regression fit
   
   # Parameters
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
-  T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
+ # N <- dim(Y)[2] # Number of units
+  #T <- dim(Y)[1] # Number of time periods
+  #T0 <- dim(Z)[1] # Time of intervention
+  #T1 <- T - T0 # Number of time periods after intervention
   
+  # Matrices for storage
+#  int <- matrix(0, nrow = 1, ncol = 1)
+#  w <- matrix(0, nrow = N - 1, ncol = 1)
+  
+  # Normalize predictors
+  #div <- as.matrix(apply(X, 1, sd)) # Matrix of standard deviations for each predictor
+  #X <- X / div[,rep(1, N)] # Standardizes each predictor to have std 1
+  # Add back if needed!
+  
+  # Fix treatment unit
+#  i <- ind_treatment
+#  Y1 <- as.matrix(Y[,i])
+#  Y0 <- as.matrix(Y[,-i])
+#  Z1 <- as.matrix(Z[,i])
+#  Z0 <- as.matrix(Z[,-i])
+#  X1 <- as.matrix(X[,i])
+#  X0 <- as.matrix(X[,-i])
+#  V1 <- Z1
+#  V0 <- Z0
+  
+  # Fit constrained regression
+#  H = t(V0)%*%V0
+#  f = as.vector(-t(V0)%*%V1)
+#  
+#  Aeq = rep(1,N-1)
+#  beq = 1
+#  lb = rep(0, N-1)
+#  ub = rep(1,N-1)
+#  
+#  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  
+#  out <- list("intercept" = 0,"weights"= w$x)
+#}
+
+find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
+  
+  ## INPUT:
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls
+  # X:              matrix of covariates for treated unit and controls 
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
+  
+  ## OUTPUT:
+  #
+  # intercept:      intercept resulting from constrained regression fit
+  # weights:        weights resulting from constrained regression fit
+  
+  ########### Find Parameters from the data ###################
+  
+  N <- dim(Y)[2]    # Number of units
+  T <- dim(Y)[1]    # Number of time periods
+  T0 <- dim(Z)[1]   # Time of intervention
+  T1 <- T - T0      # Number of time periods after intervention
+  print(N)
   # Matrices for storage
   int <- matrix(0, nrow = 1, ncol = 1)
   w <- matrix(0, nrow = N - 1, ncol = 1)
@@ -302,18 +357,35 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment){
   V1 <- Z1
   V0 <- Z0
   
-  # Fit constrained regression
-  H = t(V0)%*%V0
-  f = as.vector(-t(V0)%*%V1)
+  ########### Fit Constrained Regression ###################
   
-  Aeq = rep(1,N-1)
-  beq = 1
-  lb = rep(0, N-1)
-  ub = rep(1,N-1)
+  #should we explain this code so that people understand the steps?
+  #H = t(V0)%*%V0
+  #f = as.vector(-t(V0)%*%V1)
   
-  w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  #Aeq = rep(1,N-1)
+  #beq = 1
+  #lb = rep(0, N-1)
+  #ub = rep(1,N-1)
   
-  out <- list("intercept" = 0,"weights"= w$x)
+  #w = quadprog(H, f, NULL, NULL, Aeq, beq, lb, ub)
+  
+  #out <- list("intercept" = 0,"weights"= w$x)
+  V <- diag(length(V1))
+  H <- t(V0) %*% V %*% (V0)
+  a <- V1
+  c <- -1 * c(t(a) %*% V %*% (V0))
+  A <- t(rep(1, length(c)))
+  b <- 1
+  l <- rep(0, length(c))
+  u <- rep(1, length(c))
+  r <- 0
+  res <- LowRankQP(Vmat = H, dvec = c, Amat = A, bvec = 1, 
+                   uvec = rep(1, length(c)), method = "LU")
+  w <- as.matrix(res$alpha)
+  
+  out <- list("intercept" = 0,"weights"= w)
+  
 }
 
 #########################################################
