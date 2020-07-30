@@ -58,10 +58,22 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     #extract data from the output of prep_data to use with later functions
     
-    # CHECK HERE AGAIN!!! $Y did not work??
-    Y<- data[[2]]#data$Y
-    Z<- data[[3]]#data$Z
-    X<- data[[1]]#data$X
+    # CHECK HERE AGAIN!!! $Y did not work??. I'll check this rn
+    #Y<- data[[2]]#data$Y
+    #Z<- data[[3]]#data$Z
+    #X<- data[[1]]#data$X
+    
+    Y<- data$Y
+    Z<- data$Z
+    X<- data$X
+    
+    #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
+    if(method == "synth"){
+      tune_data <- prep_data(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
+      Y_tune <- tune_data$Y
+      Z_tune <- tune_data$Z
+      X_tune <- tune_data$X
+    }
     
     ################ Find weights ################
     
@@ -78,11 +90,26 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     #synthetic control
     if(method == "synth"){
       
+      
+      
       #find tuning parameters (vweights)
       v <- tuning_parameters_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
       
       #use vweights to find synthetic control weights
       w <- find_weights_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], v)
+    
+      #vwieghts match but w weights do not match.
+      
+      v_new <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
+      w_new <- find_weights_synth_new(Y, Z, X, vweight = v_new)
+      
+      
+      cat(w$weights)
+      cat("
+          break
+          ")
+      cat(w_new$weights)
+      
     }
     
     # Best subset
@@ -216,7 +243,7 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
   # [Z1,Z0]
   Z <- cbind(Z1, Z0)
   
-  output <- list( "X" <- X, "Y" <- Y, "Z" <- Z)
+  output <- list( "X" = X, "Y" = Y, "Z" = Z)
 }
 
 # Find optimal tuning parameters (alpha and lambda values) for the elastic net fit
@@ -461,6 +488,32 @@ tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, con
   return(output)
 }
 
+
+
+
+
+
+#default 1 because when you run it in the normal function it will be in 1. Need option for standard errors
+tuning_parameters_synth_new <- function(Y, Z, X, ind_treat=1){
+  
+  ############## Fit data to extract vweights ####################
+  synth.out <- 
+    synth(
+      X1 = as.matrix(X[, ind_treat]),
+      X0 = as.matrix(X[, -ind_treat]),
+      Z1 = as.matrix(Z[, ind_treat]),
+      Z0 = as.matrix(Z[, -ind_treat]),
+      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
+    )
+  
+  ############# output vweights ####################
+  output <- synth.out$solution.v
+  return(output)
+}
+
+
+
+
 # Function to find the weights for the control units using elastic net approach
 find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_treatment=1){
   
@@ -569,6 +622,28 @@ find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set
  
   out<- list("intercept" = 0, "weights" = synth.out$solution.w, "Y1" = dataprep.out$Y1, "Y0" = dataprep.out$Y0)
 }
+
+
+
+
+find_weights_synth_new <- function(Y, Z, X, ind_treat=1, vweight){
+  
+  ############## Fit data to extract vweights ####################
+  synth.out <- 
+    synth(
+      X1 = as.matrix(X[, ind_treat]),
+      X0 = as.matrix(X[, -ind_treat]),
+      Z1 = as.matrix(Z[, ind_treat]),
+      Z0 = as.matrix(Z[, -ind_treat]),
+      custom.v=as.numeric(vweight)
+    )
+  
+  out<- list("intercept" = 0, "weights" = synth.out$solution.w)
+}
+
+
+
+
 
 find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   
