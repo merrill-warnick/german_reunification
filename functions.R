@@ -57,23 +57,12 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
     
     #extract data from the output of prep_data to use with later functions
-    
-    # CHECK HERE AGAIN!!! $Y did not work??. I'll check this rn
-    #Y<- data[[2]]#data$Y
-    #Z<- data[[3]]#data$Z
-    #X<- data[[1]]#data$X
-    
+    #I fixed the bug here I think...let me know if it still doesn't work.
     Y<- data$Y
     Z<- data$Z
     X<- data$X
     
     #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
-    if(method == "synth"){
-      tune_data <- prep_data(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
-      Y_tune <- tune_data$Y
-      Z_tune <- tune_data$Z
-      X_tune <- tune_data$X
-    }
     
     ################ Find weights ################
     
@@ -86,21 +75,27 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       #find imputed Y weights using the tuning parameters we found
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
       
-      tune_params <- list(w$alpha, w$lambda)
-      
+      #reassign tune_params to plug into the standard error functions
+      tune_params <- list(w$alpha, w$lambda, tune_params[[2]])
     }
     
     #synthetic control
     if(method == "synth"){
+      
+      #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
+      tune_data <- prep_data(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
+      Y_tune <- tune_data$Y
+      Z_tune <- tune_data$Z
+      X_tune <- tune_data$X
+      
+      #tune_params needs to be this list for the standard error functions later.
+      tune_params <- list("Y" = Y_tune, "Z" = Z_tune, "X" = X_tune)
       
       #find tuning parameters (vweights)
       v <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
       
       #find synthetic control weights
       w <- find_weights_synth_new(Y, Z, X, vweight = v)
-      
-      tune_params <- list("Y" = Y_tune, "Z" = Z_tune, "X" = X_tune)
-      
     }
     
     # Best subset
@@ -112,6 +107,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       #find the best subset using the n_opt from the previous part
       w <- find_weights_subset(Y,Z,X,n_opt)
       
+      #reassign tune_params to plug into standard errors
       tune_params <- n_opt
     }
     
@@ -137,8 +133,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     
     ################ Find Standard Error ################
-    #############This section might occur separately. Eventually we may add it to this function ##############
-    
+
     #don't need to specify ind_treat since they're always in the 1 slot
     std_err_i = general_se(Y, Z, X, method = method, se_method = "unit", tune_params = tune_params)
     std_err_t = general_se(Y, Z, X, method = method, se_method = "time", tune_params = tune_params)
@@ -187,9 +182,9 @@ prep_data <- function(d, ind_treat, pred, dep, u, t, spec, cont_set, years, name
   
   # OUTPUT
   #
-  # X: matrix of non-outcome predictors
-  # Y: matrix of outcomes
-  # Z: matrix of prior period outcomes to be used as the main predictors
+  # X:                  matrix of non-outcome predictors
+  # Y:                  matrix of outcomes
+  # Z:                  matrix of prior period outcomes to be used as the main predictors
   
   #run dataprep (from the synth package) to prepare the data
   dataprep.out <-
@@ -245,8 +240,8 @@ tuning_parameters_elastic_net <- function(Y,Z,X,lambda_grid, alpha_grid, ind_tre
   
   # OUTPUT:
   #
-  # alpha:  optimal alpha
-  # lambda: optimal lambda
+  # alpha:          optimal alpha
+  # lambda:         optimal lambda
   
   ################ Find parameters using inputted data ################
   
@@ -337,7 +332,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   
   ## OUTPUT:
   #
-  # n_opt: optimal number of units in subset
+  # n_opt:          optimal number of units in subset
   
   ################ Find parameters using inputted data ################
   
@@ -421,6 +416,17 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
 
 #default 1 because when you run it in the normal function it will be in 1. Need option for standard errors
 tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
+ 
+  ## INPUT:
+  #
+  # Y:              matrix of outcome variables for treated unit and controls (note that these will  be Y_tune in general_estimate)
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
+  
+  ## OUTPUT:
+  #
+  # vw:             the vweights for synthetic control estimation
   
   ############## Fit data to extract vweights ####################
   synth.out <- 
@@ -433,11 +439,9 @@ tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
     )
   
   ############# output vweights ####################
-  output <- synth.out$solution.v
-  return(output)
+  vw <- synth.out$solution.v
+  return(vw)
 }
-
-
 
 
 # Function to find the weights for the control units using elastic net approach
@@ -455,8 +459,8 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
   
   ## OUTPUT:
   #
-  # intercept:  intercept resulting from elastic net fit
-  # weights:    weights resulting from elastic net fit
+  # intercept:      intercept resulting from elastic net fit
+  # weights:        weights resulting from elastic net fit
   
   ################ Find parameters using inputted data ################
   N <- dim(Y)[2] # Number of units
@@ -500,6 +504,18 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
 
 find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
   
+  ## INPUT:
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # ind_treatment:  indicator which unit is the treatment unit in Y,Z and X matrices
+  # vweight:        list of vweights that we found from tuning_parameters_synth
+  
+  ## OUTPUT:
+  #
+  # w:              the estimated synthetic control weights and an intercept (which is zero)
+  
   ############## Fit data to extract vweights ####################
   synth.out <- 
     synth(
@@ -510,11 +526,8 @@ find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
       custom.v=as.numeric(vweight)
     )
   
-  out<- list("intercept" = 0, "weights" = synth.out$solution.w)
+  w<- list("intercept" = 0, "weights" = synth.out$solution.w)
 }
-
-
-
 
 
 find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
@@ -529,8 +542,8 @@ find_weights_subset <- function(Y,Z,X,n_opt,ind_treatment=1){
   
   ## OUTPUT:
   #
-  # intercept:  intercept resulting from best subset selection fit
-  # weights:    weights resulting from best subset selection fit
+  # intercept:      intercept resulting from best subset selection fit
+  # weights:        weights resulting from best subset selection fit
   
   ############# Find parameters using the data ####################
   N <- dim(Y)[2]              # Number of units
@@ -605,8 +618,8 @@ find_weights_did <- function(Y, Z, X, ind_treatment=1){
   
   ## OUTPUT:
   #
-  # intercept:  intercept resulting from diff-in-diff fit
-  # weights:    weights resulting from diff-in-diff fit
+  # intercept:      intercept resulting from diff-in-diff fit
+  # weights:        weights resulting from diff-in-diff fit
   
   ########### Find Parameters from the data ###################
   N <- dim(Y)[2]
@@ -696,32 +709,27 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
 #########################################################
 
 
-#only need prep_params for synth, need tune_params for sytnth/elastic net and subset.
-
-#default should be units standard error? or should we set it as null?
-
-
-
-#for synth, tune_params should actually be a list with Y, Z, X named.
-#don't need prep+params anymore
-general_se <- function(data, method=NULL, se_method="unit", tune_params=NULL,  ind_treatment=1){
+general_se <- function(Y, Z, X, method=NULL, se_method="unit", tune_params=NULL,  ind_treatment=1){
   
   # INPUT
   #
-  # data:           if method=="synth", this should be a dataframe. Otherwise, data should be a list with X in the first slot, Y in the second, and Z in the third, where X, Y, Z are as in above functions.
+  # ## INPUT:
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
   # method:         weights imputation method to be used. Could be "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"
   # se_method:      chooses whether we're calculating as if the randomness were across units, across time, or both. Should be "unit", "time", or "unit_time". We may end up spitting out all values simulatneously
-  # prep_params:    see the description of prep_parameters in general_estimate and prep_data functions
   # tune_params:    need tuning parameters for synth, best_subset and elastic_net. Currently, elastic net doesn't re-select tuning parameters for each loop, so simply
   #                     supply the optimal values for alpha and lambda found with the original run of tuning_parameters_elastic_net. Similarly, for best_subset, we currently
   #                     just re-use the optimal subset size for the orignal problem. Eventually, we might change tune_parameters for synth so that we supply the initial
-  #                     v-weights found. However, currently, tune_params will match the tune_params used for synth in general_estimate
+  #                     v-weights found. However, currently, tune_params will be a list containing Y_tune, Z_tune, and X_tune named Y, X, Z.
   # ind_treatment:  column indicator for the treated unit
   #
   #
   # OUTPUT
   #
-  # se: the calculated standard error
+  # se:             the calculated standard error
   
   #must supply a supported method
   if(is.null(method) || (method != "diff_in_diff" && method != "elastic_net" && method != "constr_reg" && method != "synth" && method != "best_subset")){
@@ -733,18 +741,13 @@ general_se <- function(data, method=NULL, se_method="unit", tune_params=NULL,  i
     stop('Please specify one of the following methods for standard error calculation: "unit", "time" or "unit_time"')
     }else{
       
-    ######################### Calculate standard errors for synthetic control ########################
-      
-    #since synthetic control uses the original dataframe and more parameters, we have separate functions for synthetic control standard errors
-      
-    ##################### Calculate standard errors for other methods ########################
+    ##################### Calculate standard errors ########################
       
     #pick the data out to plug into the general functions
     X<-data[[1]]
     Y<-data[[2]]
     Z<-data[[3]]
-      
-    #for all non-synth methods, the se algorithm works very smoothly, so we can unify these functions
+    
     if(se_method=="unit"){
       se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
     }
@@ -759,23 +762,42 @@ general_se <- function(data, method=NULL, se_method="unit", tune_params=NULL,  i
   output <- se
 }
   
-  
-
-
 
 # Standard error over units for elastic net, best subset, constrained regression and diff-in-diff
 se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   
-  N <- dim(Y)[2] # Number of units
-  T <- dim(Y)[1] # Number of time periods
-  T0 <- dim(Z)[1] # Time of intervention
-  T1 <- T - T0 # Number of time periods after intervention
+  # INPUT
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # method:         weights imputation method to be used. Could be "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"
+  # tune_params:    need tuning parameters for synth, best_subset and elastic_net. Currently, elastic net doesn't re-select tuning parameters for each loop, so simply
+  #                     supply the optimal values for alpha and lambda found with the original run of tuning_parameters_elastic_net. Similarly, for best_subset, we currently
+  #                     just re-use the optimal subset size for the orignal problem. Eventually, we might change tune_parameters for synth so that we supply the initial
+  #                     v-weights found. However, currently, tune_params will be a list containing Y_tune, Z_tune, and X_tune named Y, X, Z.
+  # ind_treatment:  column indicator for the treated unit
+  #
+  #
+  # OUTPUT
+  #
+  # se:             the calculated standard error
+  
+  ################# Find parameters from the data ####################
+  
+  N <- dim(Y)[2]                  # Number of units
+  T <- dim(Y)[1]                  # Number of time periods
+  T0 <- dim(Z)[1]                 # Time of intervention
+  T1 <- T - T0                    # Number of time periods after intervention
+  
   std_err_i <- matrix(0, N-1, T1) # Storage matrix for error terms
   
   # Define new Y,Z,X matrices without original treatment unit to feed into find_weights function
   Y <- Y[,-ind_treatment]
   Z <- Z[,-ind_treatment]
   X <- X[,-ind_treatment]
+  
+  ################# Loop across units to find standard error ####################
   
   for (i in 1:(N-1)) {
     
@@ -796,6 +818,8 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
     }
     
     if(method == "synth"){
+      #tune params needs to be a list with Y_tune, Z_tune, and X_tune
+      #redraw vweights using the placebo dataset.
       v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
       w <- find_weights_synth(Y, Z, X, i, v)
     }
@@ -807,8 +831,24 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   return(std_err_i)
 }
 
-# Standard error over time for elastic net, best subset, constrained regression and diff-in-diff
+# Standard error over time 
 se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
+  # INPUT
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # method:         weights imputation method to be used. Could be "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"
+  # tune_params:    need tuning parameters for synth, best_subset and elastic_net. Currently, elastic net doesn't re-select tuning parameters for each loop, so simply
+  #                     supply the optimal values for alpha and lambda found with the original run of tuning_parameters_elastic_net. Similarly, for best_subset, we currently
+  #                     just re-use the optimal subset size for the orignal problem. Eventually, we might change tune_parameters for synth so that we supply the initial
+  #                     v-weights found. However, currently, tune_params will be a list containing Y_tune, Z_tune, and X_tune named Y, X, Z.
+  # ind_treatment:  column indicator for the treated unit
+  #
+  #
+  # OUTPUT
+  #
+  # se:             the calculated standard error
   
   T0 <- dim(Z)[1] # Time of intervention
   s <- floor(T0 / 2)
@@ -845,12 +885,25 @@ se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   return(std_err_t)
 }
 
-# Standard error over units and time for elastic net, best subset, constrained regression and diff-in-diff
-
-#hmmmm actually finding the vweights over time might be more complicated. But I guess originally we didn't worry about
-#it anyway i guess.
-#for now, tune_params for synth needs to be a list with named elts Y Z X.
+# Standard error over units and time 
 se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
+  
+  # INPUT
+  #
+  # Y:              matrix of outcome variables for treated unit and controls 
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # method:         weights imputation method to be used. Could be "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"
+  # tune_params:    need tuning parameters for synth, best_subset and elastic_net. Currently, elastic net doesn't re-select tuning parameters for each loop, so simply
+  #                     supply the optimal values for alpha and lambda found with the original run of tuning_parameters_elastic_net. Similarly, for best_subset, we currently
+  #                     just re-use the optimal subset size for the orignal problem. Eventually, we might change tune_parameters for synth so that we supply the initial
+  #                     v-weights found. However, currently, tune_params will be a list containing Y_tune, Z_tune, and X_tune named Y, X, Z.
+  # ind_treatment:  column indicator for the treated unit
+  #
+  #
+  # OUTPUT
+  #
+  # se:             the calculated standard error
   
   N <- dim(Y)[2] # Number of units
   T0 <- dim(Z)[1] # Time of intervention
