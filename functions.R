@@ -85,30 +85,21 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       
       #find imputed Y weights using the tuning parameters we found
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
+      
+      tune_params <- list(w$alpha, w$lambda)
+      
     }
     
     #synthetic control
     if(method == "synth"){
       
-      
-      
       #find tuning parameters (vweights)
-      v <- tuning_parameters_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
+      v <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
       
-      #use vweights to find synthetic control weights
-      w <- find_weights_synth(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]], v)
-    
-      #vwieghts match but w weights do not match.
+      #find synthetic control weights
+      w <- find_weights_synth_new(Y, Z, X, vweight = v)
       
-      v_new <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
-      w_new <- find_weights_synth_new(Y, Z, X, vweight = v_new)
-      
-      
-      cat(w$weights)
-      cat("
-          break
-          ")
-      cat(w_new$weights)
+      tune_params <- list("Y" = Y_tune, "Z" = Z_tune, "X" = X_tune)
       
     }
     
@@ -120,6 +111,8 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       
       #find the best subset using the n_opt from the previous part
       w <- find_weights_subset(Y,Z,X,n_opt)
+      
+      tune_params <- n_opt
     }
     
     # Diff-in-diff: 
@@ -138,26 +131,18 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     
     ################ Get estimate ################
+
+    Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
+    Y_true = Y[,1]
     
-    #since synth output is different from output in other methods, we need to calculate Y_est and pick out Y_true differently.
-    if(method=="synth"){
-      
-      #estimated Y using the intercept (which should be zero from synth) and the synthetic weights
-      Y_est = rep(w$intercept,nrow(Y)) + w$Y0%*%w$weights
-      Y_true = w$Y1
-    }else{
-      
-      #in other cases we can simply use the Y matrix we constructed earlier.
-      Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
-      Y_true = Y[,1]
-    }
     
     ################ Find Standard Error ################
     #############This section might occur separately. Eventually we may add it to this function ##############
     
-    std_err_i = 0 #general_se(data, method= method, se_method="unit")
-    std_err_t = 0 #general_se(data, method= method, se_method="time")
-    std_err_it = 0 #general_se(data, method= method, se_method="unit_time")
+    #don't need to specify ind_treat since they're always in the 1 slot
+    std_err_i = general_se(Y, Z, X, method = method, se_method = "unit", tune_params = tune_params)
+    std_err_t = general_se(Y, Z, X, method = method, se_method = "time", tune_params = tune_params)
+    std_err_it = general_se(Y, Z, X, method = method, se_method = "unit_time", tune_params = tune_params)
     
     
     ################ Output ################
@@ -433,68 +418,9 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
 }
 
 
-#find synthetic control tuning parameters (v-weights)
-tuning_parameters_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names){
-  
-  # INPUT 
-  #
-  # Note: Most of the later inputs match input descriptions for prep_data
-  #
-  # pred: vector containing string with predictor variables. (This becomes X)
-  # dep: string specifying which one is dependent variable. (This becomes Y and Z)
-  # u: integer identifying unit variable (which column in data frame specifies index)
-  # t: integer identifying time variable (which column in data frame specifies time)
-  # spec: list of special predictors (also becomes X)
-  # cont_set: vector of the columns for control units.
-  # years: vector specifying years or whatever time variable used. In general, these are similar to the years from prep_data, but should be adjusted to match whatever
-  #           set of years you've decided to cross-validate with to find the v-weights.
-  #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
-  #                             [3]: start of prior period, [4]: end of prior period (these years determine what years are in Z)
-  #                             [5]: start time plot, [6]: end time plot  (probably just your whole time period)                                                       
-  # names: unit names variable (which column in data frame specifies unit names)
-  #
-  # OUTPUT
-  #
-  # v-weights for synthetic control in the next step
-  
-  ############# Put the data into a dataprep structure ####################
-  dataprep.out <-
-    dataprep(
-      
-      foo = d,
-      predictors    = pred,
-      dependent     = dep,
-      unit.variable = u,
-      time.variable = t,
-      special.predictors = spec,
-      treatment.identifier = ind_treatment,
-      controls.identifier = cont_set,
-      time.predictors.prior = years[1]:years[2],
-      time.optimize.ssr = years[3]:years[4],
-      unit.names.variable = names,
-      time.plot = years[5]:years[6]
-    )
-  
-  ############## Fit data to extract vweights ####################
-  synth.out <- 
-    synth(
-      data.prep.obj=dataprep.out,
-      
-      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
-    )
-  
-  ############# output vweights ####################
-  output <- synth.out$solution.v
-  return(output)
-}
-
-
-
-
-
 
 #default 1 because when you run it in the normal function it will be in 1. Need option for standard errors
-tuning_parameters_synth_new <- function(Y, Z, X, ind_treat=1){
+tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
   
   ############## Fit data to extract vweights ####################
   synth.out <- 
@@ -571,62 +497,8 @@ find_weights_elastic_net <- function(Y, Z, X, alpha, lambda, lambda_grid, ind_tr
 }
 
 
-#Function to find weights using synthetic control
-find_weights_synth <- function(d, ind_treatment, pred, dep, u, t, spec, cont_set, years, names, vweight){
-  # INPUT 
-  #
-  #The inputs are the same as for tuning_parameters_synth except that the special predictor set might be different,
-  #   the years should differ, and you need to supply a set of vweights that comes from tuning_parameters_synth. The years
-  #   *will* be the same years as used in data_prep
-  #
-  # pred: vector containing string with predictor variables. (This becomes X)
-  # dep: string specifying which one is dependent variable. (This becomes Y and Z)
-  # u: integer identifying unit variable (which column in data frame specifies index)
-  # t: integer identifying time variable (which column in data frame specifies time)
-  # spec: list of special predictors (also becomes X)
-  # cont_set: vector of the columns for control units.
-  # years: vector specifying years or whatever time variable used. These will be the same years as the years you use for data_prep
-  #                             [1]: start for predictor aggregation, [2]: end for predictor aggregation (these determine what years are averaged for for X variables listed in "pred")
-  #                             [3]: start of prior period, [4]: end of prior period (should be the treatment year) (these years determine what years are in Z)
-  #                             [5]: start time plot, [6]: end time plot  (probably just your whole time period)                                                       
-  # names: unit names variable (which column in data frame specifies unit names)
-  #
-  # OUTPUT
-  #
-  # v-weights for synthetic control in the next step
-  
-  ############# Put the data into a dataprep structure ####################
-  
-  dataprep.out <-
-    dataprep(
-      foo = d,
-      predictors    = pred,
-      dependent     = dep,
-      unit.variable = u,
-      time.variable = t,
-      special.predictors = spec,
-      treatment.identifier = ind_treatment,
-     controls.identifier = cont_set,
-     
-      time.predictors.prior = years[1]:years[2],
-      time.optimize.ssr = years[3]:years[4],
-      unit.names.variable = names,
-     time.plot = years[5]:years[6]
-    )
-  
-  ############# Find synthetic control weights ####################
-  synth.out <- synth(
-    data.prep.obj=dataprep.out,
-    custom.v=as.numeric(vweight)
-  )
- 
-  out<- list("intercept" = 0, "weights" = synth.out$solution.w, "Y1" = dataprep.out$Y1, "Y0" = dataprep.out$Y0)
-}
 
-
-
-
-find_weights_synth_new <- function(Y, Z, X, ind_treat=1, vweight){
+find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
   
   ############## Fit data to extract vweights ####################
   synth.out <- 
@@ -829,7 +701,10 @@ find_weights_constr_reg <- function(Y,Z,X,ind_treatment=1){
 #default should be units standard error? or should we set it as null?
 
 
-general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tune_params=NULL,  ind_treatment=1){
+
+#for synth, tune_params should actually be a list with Y, Z, X named.
+#don't need prep+params anymore
+general_se <- function(data, method=NULL, se_method="unit", tune_params=NULL,  ind_treatment=1){
   
   # INPUT
   #
@@ -861,42 +736,31 @@ general_se <- function(data, method=NULL, se_method="unit", prep_params=NULL, tu
     ######################### Calculate standard errors for synthetic control ########################
       
     #since synthetic control uses the original dataframe and more parameters, we have separate functions for synthetic control standard errors
-    if(method=="synth"){
-      if(se_method=="unit"){
-        se <- se_unit_synth(data, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
-      }
-      if(se_method=="time"){
-        se <- se_time_synth(data, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
-      }  
-      if(se_method=="unit_time"){ 
-        se <- se_it_synth(data, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[5]], prep_params[[6]], tune_params[[2]], prep_params[[7]], prep_params[[8]])
-      }
-    }else{
       
-      ##################### Calculate standard errors for other methods ########################
+    ##################### Calculate standard errors for other methods ########################
       
-      #pick the data out to plug into the general functions
-      X<-data[[1]]
-      Y<-data[[2]]
-      Z<-data[[3]]
+    #pick the data out to plug into the general functions
+    X<-data[[1]]
+    Y<-data[[2]]
+    Z<-data[[3]]
       
-      #for all non-synth methods, the se algorithm works very smoothly, so we can unify these functions
-      if(se_method=="unit"){
-        se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
-      }
-      if(se_method=="time"){
-        se <- se_time(Y, Z, X, method, tune_params, ind_treatment)
-      }
-      if(se_method=="unit_time"){
-        se <- se_it(Y, Z, X, method, tune_params, ind_treatment)
-      }
-      
+    #for all non-synth methods, the se algorithm works very smoothly, so we can unify these functions
+    if(se_method=="unit"){
+      se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
     }
-    output <- se
+    if(se_method=="time"){
+      se <- se_time(Y, Z, X, method, tune_params, ind_treatment)
+    }
+    if(se_method=="unit_time"){
+      se <- se_it(Y, Z, X, method, tune_params, ind_treatment)
+    }
+      
   }
-  
-  
+  output <- se
 }
+  
+  
+
 
 
 # Standard error over units for elastic net, best subset, constrained regression and diff-in-diff
@@ -931,6 +795,11 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
       w <- find_weights_did(Y,Z,X, i)
     }
     
+    if(method == "synth"){
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+      w <- find_weights_synth(Y, Z, X, i, v)
+    }
+    
     # Get standard error
     std_err_i[i,] <- (Y[-c(1:T0),i] - rep(w$intercept,T1) - Y[-c(1:T0),-i] %*% w$weights) ^ 2
   }
@@ -961,7 +830,11 @@ se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
       w <- find_weights_constr_reg(Y,Z,X, ind_treatment)
     }
     if(method == "diff_in_diff"){
-      w <- find_weights_did(Y,Z,X, i)
+      w <- find_weights_did(Y,Z,X, ind_treatment)
+    }
+    if(method == "synth"){
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, ind_treatment)
+      w <- find_weights_synth(Y, Z, X, ind_treatment, v)
     }
     
     # Get standard error
@@ -973,6 +846,10 @@ se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
 }
 
 # Standard error over units and time for elastic net, best subset, constrained regression and diff-in-diff
+
+#hmmmm actually finding the vweights over time might be more complicated. But I guess originally we didn't worry about
+#it anyway i guess.
+#for now, tune_params for synth needs to be a list with named elts Y Z X.
 se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   
   N <- dim(Y)[2] # Number of units
@@ -1007,6 +884,10 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
       if(method == "diff_in_diff"){
         w <- find_weights_did(Y,Z_temp,X, i)
       }
+      if(method == "synth"){
+        v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+        w <- find_weights_synth(Y, Z, X, i, v)
+      }
       
       # Get standard error
       std_err_temp[t,1] <- (Y[T0 - t + 1,i] - w$intercept - Y[T0 - t + 1,-i] %*% w$weights) ^ 2
@@ -1019,93 +900,3 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   return(std_err_it)
 }
 
-
-#############Synthetic control standard error functions#######################
-
-se_unit_synth <- function(data, pred, dep, u, t, cspec, spec, cont_set, cyears, years, names){
-  
-  N <- length(cont_set) + 1
-  
-  T <- years[[6]] - years[[5]] + 1
-  
-  T0 <- years[[4]] - years[[5]] + 1
-  
-  T1<- T - T0
-  
-  std_err_i <- matrix(0, N - 1, T1)
-  
-  for (j in 1:(N - 1)) {
-    ind <- cont_set[j]
-    
-    vw <- tuning_parameters_synth(data, ind, pred, dep, u, t, cspec, cont_set[-j], cyears, names)
-    
-    w <- find_weights_synth(data, ind, pred, dep, u, t, spec, cont_set[-j], years, names, vw)
-    
-    std_err_i[j,] <- (w$Y1[-c(1:T0),] - w$intercept - w$Y0[-c(1:T0),] %*% w$weights) ^ 2
-  }
-  
-  std_err_i <- as.matrix(sqrt(apply(std_err_i, 2, mean)))
-}
-
-
-
-se_time_synth <- function(data, ind_treatment, pred, dep, u, t, cspec, spec, cont_set, cyears, years, names){
-  
-  N <- length(cont_set) + 1
-  
-  T <- years[[6]] - years[[5]] + 1
-  
-  T0 <- years[[4]] - years[[5]] + 1
-  
-  s <- floor(T0 / 2)
-  
-  std_err_t <- matrix(0, s, 1)
-  vweights <- matrix(0,s,6)
-  for (k in 1:s) {
-    
-    vw <- tuning_parameters_synth(data, ind_treatment, pred, dep, u, t, cspec, cont_set, cyears, names)
-    
-    years_temp <- years
-    years_temp[4] <- years[4] - k
-    
-    w <- find_weights_synth(data, ind_treatment, pred, dep, u, t, spec, cont_set, years_temp, names, vw)
-    
-    std_err_t[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
-  }
-  std_err_t <- as.matrix(sqrt(apply(std_err_t, 2, mean)))
-}
-
-
-
-se_it_synth <- function(data, pred, dep, u, t, cspec, spec, cont_set, cyears, years, names){
-  
-  N <- length(cont_set) + 1
-  
-  T <- years[[6]] - years[[5]] + 1
-  
-  T0 <- years[[4]] - years[[5]] + 1
-  
-  s <- floor(T0 / 2)
-  
-  std_err_it <- matrix(0, N - 1, 1)
-  for (j in 1:(N - 1)) {
-    
-    ind <- cont_set[j]
-    std_err_temp <- matrix(0, s, 1)
-    for (k in 1:s) {
-      
-      vw <- tuning_parameters_synth(data, ind, pred, dep, u, t, cspec, cont_set[-j], cyears, names)
-      
-      years_temp <- years
-      years_temp[4] <- years[4] - k
-      
-      w <- find_weights_synth(data, ind, pred, dep, u, t, spec, cont_set[-j], years_temp, names, vw)
-      
-      std_err_temp[k,1] <- (w$Y1[T0 - k + 1,] - w$intercept - w$Y0[T0 - k + 1,] %*% w$weights) ^ 2
-    }
-    std_err_temp <- as.matrix(apply(std_err_temp, 2, mean))
-    std_err_it[j,1] <- std_err_temp
-  }
-  
-  std_err_it <-  as.matrix(sqrt(apply(std_err_it, 2, mean)))
-}
