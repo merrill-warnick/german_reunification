@@ -76,7 +76,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
       
       #reassign tune_params to plug into the standard error functions
-      tune_params <- list(w$alpha, w$lambda, tune_params[[2]])
+      tune_params <- list(params$alpha, params$lambda, tune_params[[2]])
     }
     
     #synthetic control
