@@ -27,7 +27,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
   # method:         "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
   # prep_params:    vector of parameters for dataprep. The inputs needed are explained in the prep_data function
   # tune_params:    vector of parameters needed for methods that need cross-validation for tuning parameters.
-  #                   for elastic_net, it should have an alpha grid and a lambda grid
+  #                   for elastic_net, it should have a lambda grid and an alpha grid 
   #                   for synth, it should have a vector of special predictors for dataprep and a year vector (replacing inputs 5 and 7 of prep_params)
   # ind_treatment:  the column that corresponds to the treated unit
   
@@ -76,7 +76,7 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
       
       #reassign tune_params to plug into the standard error functions
-      tune_params <- list(params$alpha, params$lambda, tune_params[[2]])
+      tune_params <- list(params$alpha, params$lambda, tune_params[[1]])
     }
     
     #synthetic control
