@@ -742,11 +742,6 @@ general_se <- function(Y, Z, X, method=NULL, se_method="unit", tune_params=NULL,
     }else{
       
     ##################### Calculate standard errors ########################
-      
-    #pick the data out to plug into the general functions
-    X<-data[[1]]
-    Y<-data[[2]]
-    Z<-data[[3]]
     
     if(se_method=="unit"){
       se <- se_unit(Y, Z, X, method, tune_params, ind_treatment)
