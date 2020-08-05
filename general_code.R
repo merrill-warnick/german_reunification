@@ -14,22 +14,19 @@ d <- read.dta("repgermany.dta")
 ########## Parameters ##########
 ################################
 
-# Maybe needed, maybe not?
+prep_params_list = list(c("gdp","trade","infrate"),
+                        "gdp",1,3,list(
+                          list("industry" ,1981:1990, c("mean")),
+                          list("schooling",c(1980,1985), c("mean")),
+                          list("invest80" ,1980, c("mean"))
+                        ),
+                        unique(d$index)[-7],
+                        c(1981,1990,1960,1989,1960,2003),2)
 
 ###################################################
 ########## Estimates and Standard Errors ##########
 ###################################################
 
-prep_params_list = list(c("gdp","trade","infrate"),
-                  "gdp",1,3,list(
-                    list("industry" ,1981:1990, c("mean")),
-                    list("schooling",c(1980,1985), c("mean")),
-                    list("invest80" ,1980, c("mean"))
-                  ),
-                  unique(d$index)[-7],
-                  c(1981,1990,1960,1989,1960,2003),2)
-
-# Get estimates and standard errors
 fit_elastic_net <- general_estimate(d, method = "elastic_net", 
                                     prep_params= prep_params_list, 
                                     tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
