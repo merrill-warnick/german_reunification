@@ -949,6 +949,18 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
 }
 
 general_treatment_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
+  
+  # INPUT
+  #
+  # fit_obj: Object returned by the function general_estimate
+  # legend: vector supplied if legend is wished for (e.g. c("Actual data", "Fitted data"))
+  # time_vec: vector of start and end point for x-axis of the plot (e.g. c("1960","1990"))
+  #
+  #
+  # OUTPUT
+  #
+  # Plot of the true data and estimated data
+  
   if(is.null(time_vec)){
     t = length(fit_obj$Y_true)
     plot(1:t, fit_obj$Y_true, type = "l", lty = 2, xlim = c(1,t), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
@@ -968,6 +980,18 @@ general_treatment_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
 }
 
 general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
+  
+  # INPUT
+  #
+  # fit_obj: Object returned by the function general_estimate
+  # legend: vector supplied if legend is wished for (e.g. c("Actual data", "Fitted data"))
+  # time_vec: vector of start and end point for x-axis of the plot (e.g. c("1960","1990"))
+  #
+  #
+  # OUTPUT
+  #
+  # Plot of the estimated data and confidence intervals
+  
   start = fit_obj$T0+1
   end = length(fit_obj$Y_true)
   tau <- fit_obj$Y_true[start:end]-fit_obj$Y_est[start:end] 
@@ -994,6 +1018,18 @@ general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
 }
 
 general_weights_plot <- function(fit_obj, control_names, method){
+  
+  # INPUT
+  #
+  # fit_obj: Object returned by the function general_estimate
+  # control_names: vector containing names of the control units
+  # method: string indicating which method was used
+  #
+  #
+  # OUTPUT
+  #
+  # Plot of the regression weights
+  
   weights <- as.data.frame(cbind(control_names,fit_obj$weights))
   colnames(weights) <- c("controls","w")
   weights$w <- as.numeric(as.character(weights$w))
