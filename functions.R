@@ -990,7 +990,7 @@ general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
   #
   # OUTPUT
   #
-  # Plot of the estimated data and confidence intervals
+  # Plot of the estimated treatment effect and confidence intervals
   
   start = fit_obj$T0+1
   end = length(fit_obj$Y_true)
