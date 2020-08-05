@@ -948,3 +948,58 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   return(std_err_it)
 }
 
+general_treatment_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
+  if(is.null(time_vec)){
+    t = length(fit_obj$Y_true)
+    plot(1:t, fit_obj$Y_true, type = "l", lty = 2, xlim = c(1,t), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
+    lines(1:t, fit_obj$Y_est, lty = 1, col= "red")
+    abline(v = (fit_obj$T0-1), col = "black")
+    if(!is.null(legend)){
+      legend("topleft",legend= legend, col = c("black", "red"),lty=c(2,1), ncol=1, bty = 'n', cex = 0.7)
+    }
+  }else{
+    plot(time_vec[1]:time_vec[2], fit_obj$Y_true, type = "l", lty = 2, xlim = c(time_vec[1],time_vec[2]), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
+    lines(time_vec[1]:time_vec[2], fit_obj$Y_est, lty = 1, col= "red")
+    abline(v = (time_vec[1]+fit_obj$T0-1), col = "black")
+    if(!is.null(legend)){
+      legend("topleft",legend= legend, col = c("black", "red"),lty=c(2,1), ncol=1, bty = 'n', cex = 0.7)
+    }
+  }
+}
+
+general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
+  start = fit_obj$T0+1
+  end = length(fit_obj$Y_true)
+  tau <- fit_obj$Y_true[start:end]-fit_obj$Y_est[start:end] 
+  std_err <- fit_obj$std_err_i
+  
+  if(is.null(time_vec)){
+    t = end
+    plot(1:t, tau, type = "l", lty = 1, xlim = c(1,t), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
+    lines(1:t, tau+1.96*std_err, lty = 3, col= "red")
+    lines(1:t, tau-1.96*std_err, lty = 3, col= "red")
+    abline(h = 0, col= "black")
+    if(!is.null(legend)){
+      legend("topleft",legend= legend, col = c("black", "red"),lty=c(1,3), ncol=1, bty = 'n', cex = 0.7)
+    }
+  }else{
+    plot(time_vec[1]:time_vec[2], tau, type = "l", lty = 1, xlim = c(time_vec[1],time_vec[2]), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
+    lines(time_vec[1]:time_vec[2], tau+1.96*std_err, lty = 3, col= "red")
+    lines(time_vec[1]:time_vec[2], tau-1.96*std_err, lty = 3, col= "red")
+    abline(h = 0, col= "black")
+    if(!is.null(legend)){
+      legend("topleft",legend= legend, col = c("black", "red"),lty=c(1,3), ncol=1, bty = 'n', cex = 0.7)
+    }
+  }
+}
+
+general_weights_plot <- function(fit_obj, control_names, method){
+  weights <- as.data.frame(cbind(control_names,fit_obj$weights))
+  colnames(weights) <- c("controls","w")
+  weights$w <- as.numeric(as.character(weights$w))
+  
+  p <- ggplot(weights, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = method)+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
+  p
+  
+  
+}
