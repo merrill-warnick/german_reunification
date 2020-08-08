@@ -965,14 +965,14 @@ general_treatment_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
     t = length(fit_obj$Y_true)
     plot(1:t, fit_obj$Y_true, type = "l", lty = 2, xlim = c(1,t), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
     lines(1:t, fit_obj$Y_est, lty = 1, col= "red")
-    abline(v = (fit_obj$T0-1), col = "black")
+    abline(v = (fit_obj$T_0-1), col = "black")
     if(!is.null(legend)){
       legend("topleft",legend= legend, col = c("black", "red"),lty=c(2,1), ncol=1, bty = 'n', cex = 0.7)
     }
   }else{
     plot(time_vec[1]:time_vec[2], fit_obj$Y_true, type = "l", lty = 2, xlim = c(time_vec[1],time_vec[2]), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
     lines(time_vec[1]:time_vec[2], fit_obj$Y_est, lty = 1, col= "red")
-    abline(v = (time_vec[1]+fit_obj$T0-1), col = "black")
+    abline(v = (time_vec[1]+fit_obj$T_0-1), col = "black")
     if(!is.null(legend)){
       legend("topleft",legend= legend, col = c("black", "red"),lty=c(2,1), ncol=1, bty = 'n', cex = 0.7)
     }
