@@ -992,7 +992,7 @@ general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
   #
   # Plot of the estimated treatment effect and confidence intervals
   
-  start = fit_obj$T0+1
+  start = fit_obj$T_0+1
   end = length(fit_obj$Y_true)
   tau <- fit_obj$Y_true[start:end]-fit_obj$Y_est[start:end] 
   std_err <- fit_obj$std_err_i
