@@ -1032,7 +1032,7 @@ general_weights_plot <- function(fit_obj, control_names, method){
   #
   # Plot of the regression weights
   
-  weights <- as.data.frame(cbind(control_names,fit_obj$weights))
+  weights <- as.data.frame(cbind(control_names,fit_obj$w))
   colnames(weights) <- c("controls","w")
   weights$w <- as.numeric(as.character(weights$w))
   
