@@ -992,7 +992,7 @@ general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
   #
   # Plot of the estimated treatment effect and confidence intervals
   
-  start = fit_obj$T_0+1
+  start = fit_obj$T_0
   end = length(fit_obj$Y_true)
   tau <- fit_obj$Y_true[start:end]-fit_obj$Y_est[start:end] 
   std_err <- fit_obj$std_err_i
@@ -1007,9 +1007,11 @@ general_std_error_plot <- function(fit_obj, legend = NULL, time_vec = NULL){
       legend("topleft",legend= legend, col = c("black", "red"),lty=c(1,3), ncol=1, bty = 'n', cex = 0.7)
     }
   }else{
-    plot(time_vec[1]:time_vec[2], tau, type = "l", lty = 1, xlim = c(time_vec[1],time_vec[2]), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
-    lines(time_vec[1]:time_vec[2], tau+1.96*std_err, lty = 3, col= "red")
-    lines(time_vec[1]:time_vec[2], tau-1.96*std_err, lty = 3, col= "red")
+    start = time_vec[1]+fit_obj$T_0
+    end = time_vec[2]
+    plot(start:end, tau, type = "l", lty = 1, xlim = c(start,end), col = "black",  xlab = " ", ylab = "", las = 1, bty = 'L')
+    lines(start:end, tau+1.96*std_err, lty = 3, col= "red")
+    lines(start:end, tau-1.96*std_err, lty = 3, col= "red")
     abline(h = 0, col= "black")
     if(!is.null(legend)){
       legend("topleft",legend= legend, col = c("black", "red"),lty=c(1,3), ncol=1, bty = 'n', cex = 0.7)
