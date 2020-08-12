@@ -23,53 +23,72 @@ prep_params_list = list(c("gdp","trade","infrate"),
                         unique(d$index)[-7],
                         c(1981,1990,1960,1989,1960,2003),2)
 
+
+################################
+########## Data Prep ###########
+################################
+
+#prepare the german reunification data
+#we'll use the dataprep function since it's already sitting in functions.
+
+
+data <- prep_data(d = d, 
+                         ind_treat = 7,
+                         pred = c("gdp","trade","infrate"), 
+                         dep = "gdp", 
+                         u = 1,
+                         t = 3, 
+                         spec = list(
+                           list("industry" ,1981:1990, c("mean")),
+                           list("schooling",c(1980,1985), c("mean")),
+                           list("invest80" ,1980, c("mean"))
+                         ),
+                         cont_set = unique(d$index)[-7],
+                         years = c(1981,1990,1960,1989,1960,2003),
+                         names = 2)
+
+#"spec" and "years" are the parameters that are different here.
+tune_params_synth <- prep_data(d = d, 
+                         ind_treat = 7,
+                         pred = c("gdp","trade","infrate"), 
+                         dep = "gdp", 
+                         u = 1,
+                         t = 3, 
+                         spec = list(
+                           list("industry", 1971:1980, c("mean")),
+                           list("schooling",c(1970,1975), c("mean")),
+                           list("invest70" ,1980, c("mean"))
+                         ),
+                         cont_set = unique(d$index)[-7],
+                         years = c(1971, 1980, 1981, 1990, 1960, 2003),
+                         names = 2)
+
+
+#prepare W:
+#since I'm just building it out of what we aready have, I guess there's not much point to doing it like this huh...
+W <- matrix(0, dim(data$Y)[1], dim(data$Y)[2])
+W[31:44,7] = 1
+
 ###################################################
 ########## Estimates and Standard Errors ##########
 ###################################################
 
-fit_elastic_net <- general_estimate(d, method = "elastic_net", 
-                                    prep_params= prep_params_list, 
+
+fit_elastic_net <- general_estimate(data$Y, data$Z, data$X, W, method = "elastic_net", 
                                     tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                          seq(from = 2e-01, to = 100, by = 1e-01), 
-                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)),
-                                    ind_treatment = 7)
-fit_constr_reg <- general_estimate(d, method = "constr_reg", 
-                                   prep_params= prep_params_list,
-                                                     
-                                   ind_treatment = 7)
+                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
 
-fit_subs <- general_estimate(d, method = "best_subset", 
-                            prep_params = prep_params_list,
-                             ind_treatment = 7)
+fit_constr_reg <- general_estimate(data$Y, data$Z, data$X, W, method = "constr_reg")
 
+fit_subs <- general_estimate(data$Y, data$Z, data$X, W, method = "best_subset")
 
-tune_synth_spec <- list(
-  list("industry", 1971:1980, c("mean")),
-  list("schooling",c(1970,1975), c("mean")),
-  list("invest70" ,1980, c("mean"))
-)
-  
-tune_synth_years <- c(1971, 1980, 1981, 1990, 1960, 2003)
-source('functions.R')
-fit_synth <- general_estimate(d, method = "synth", 
-                             prep_params = prep_params_list,
-                             tune_params = list(tune_synth_spec , tune_synth_years),
-                             ind_treatment = 7)
+#note: The synth version *is* pretty slow since we re-draw. It takes about an hour to run...but i spose it would still be pretty slow anyway I guess.
+#Should we supress the output?
+fit_synth <- general_estimate(data$Y, data$Z, data$X, W, method = "synth", 
+                              tune_params = tune_params_synth)
 
-se_synth_unit <- general_se(d, method = "synth", se_method <- "unit", 
-                              prep_params = prep_params_list,
-                              tune_params = list(tune_synth_spec , tune_synth_years),
-                              ind_treatment = 7)
-
-se_synth_time <- general_se(d, method = "synth", se_method <- "time", 
-                             prep_params = prep_params_list,
-                             tune_params = list(tune_synth_spec , tune_synth_years),
-                             ind_treatment = 7)
-
-se_synth_it <- general_se(d, method = "synth", se_method <- "unit_time", 
-                             prep_params = prep_params_list,
-                             tune_params = list(tune_synth_spec , tune_synth_years),
-                             ind_treatment = 7)
+fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_in_diff")
 
 #################################
 ########## Save Values ##########

@@ -75,8 +75,8 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
     }#do I have to put an else or will this just short circuit it? I'm not going to put an else in and I'll ask Lea if that's okay.
     ind_treatment <- which.max(colSums(W!=0))
     check <- colSums(W)[ind_treatment]
-    T_0 <- dim(Z)[ind_treatment]
-    T_1 <- dim(Y)[ind_treatment] - dim(Z)[ind_treatment]
+    T_0 <- dim(Z)[1]
+    T_1 <- dim(Y)[1] - dim(Z)[1]
     #okay so I might have an off by one error (because I'm not sure if we count the treatment year with T0 or with T1), but I *THINK* that here, check should be 
     #just equal to T1 I think. So we'll check that
     if (check!=T_1){
@@ -120,10 +120,12 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
       #find tuning parameters (vweights)
       #tune_params is going to be a pre-made Y_tune, Z_tune, X_tune.
       #don't need to rewrite this anymore
-      v <- tuning_parameters_synth_new(tune_params[[1]], tune_params[[2]], tune_params[[3]])
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X)
       
       #find synthetic control weights
-      w <- find_weights_synth_new(Y, Z, X, vweight = v)
+      w <- find_weights_synth(Y, Z, X, vweight = v)
+      
+      
     }
     
     # Best subset
@@ -159,7 +161,7 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
     Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
     Y_true = Y[,1]
     
-    
+   
     ################ Find Standard Error ################
 
     #don't need to specify ind_treat since they're always in the 1 slot
@@ -555,7 +557,7 @@ find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
       Z0 = as.matrix(Z[, -ind_treat]),
       custom.v=as.numeric(vweight)
     )
-  
+
   w<- list("intercept" = 0, "weights" = synth.out$solution.w)
 }
 
@@ -810,6 +812,8 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   
   ################# Find parameters from the data ####################
   
+  
+  
   N <- dim(Y)[2]                  # Number of units
   T <- dim(Y)[1]                  # Number of time periods
   T0 <- dim(Z)[1]                 # Time of intervention
@@ -845,7 +849,9 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
     if(method == "synth"){
       #tune params needs to be a list with Y_tune, Z_tune, and X_tune
       #redraw vweights using the placebo dataset.
-      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+      
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, i)
+      
       w <- find_weights_synth(Y, Z, X, i, v)
     }
     
@@ -898,7 +904,7 @@ se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
       w <- find_weights_did(Y,Z,X, ind_treatment)
     }
     if(method == "synth"){
-      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, ind_treatment)
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, ind_treatment)
       w <- find_weights_synth(Y, Z, X, ind_treatment, v)
     }
     
@@ -963,7 +969,7 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
         w <- find_weights_did(Y,Z_temp,X, i)
       }
       if(method == "synth"){
-        v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+        v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, i)
         w <- find_weights_synth(Y, Z, X, i, v)
       }
       
