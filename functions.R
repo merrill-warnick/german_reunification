@@ -19,16 +19,27 @@ library(LowRankQP)
 #in synthetic control stuff and ind_treatment is going to be not necessarily one.
 # Yes, agreed! The way we have it now, it should not be defualted to 1
 
-general_estimate <- function(data_df, method = NULL, prep_params, tune_params = NULL, ind_treatment){
+
+#plan right now: change this so that we just take in a Y, Z, X, W, no dataframe. I'm going to write this so that W is a matrix that keeps researchers
+#                 honest. WE could also write it so that W is just a vector.
+#notes:       W contains redundant information, but I think that we do it so that the researcher has to check and make sure that Y and Z are correct
+#             We'll need to input Y, Z, X tuning versions for synthetic control. No need for a W_tune I think.
+
+#I *think* we can get rid of prep_params.
+
+general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
   
   ## INPUT:
   #
-  # data_df:        The input dataframe 
+  # Y:              matrix of outcome variables for treated unit and controls.
+  #                   (Note that currently our code only will work for a single treated unit and many control units)
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
   # method:         "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
-  # prep_params:    vector of parameters for dataprep. The inputs needed are explained in the prep_data function
   # tune_params:    vector of parameters needed for methods that need cross-validation for tuning parameters.
   #                   for elastic_net, it should have a lambda grid and an alpha grid 
-  #                   for synth, it should have a vector of special predictors for dataprep and a year vector (replacing inputs 5 and 7 of prep_params)
+  #                   for synth, it should be Y_tune, Z_tune, X_tune matrices that have been previously prepared like X, Y, Z but use the years and predictors 
+  #                     for synthetic control cross-validations
   # ind_treatment:  the column that corresponds to the treated unit
   
   ## OUTPUT:
@@ -53,16 +64,33 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     ################ Prepare data ################
     
-    #prep_data uses the dataprep function to make the data usable for most of the methods. See the prep_data function for information on the inputs.
-    data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
+    #now that we're preparing the data outside of the function, I think that the only thing we should do here is do check to make sure that W, Y, Z reconcile nicely
+   
     
-    #extract data from the output of prep_data to use with later functions
-    #I fixed the bug here I think...let me know if it still doesn't work.
-    Y<- data$Y
-    Z<- data$Z
-    X<- data$X
+    #check that there's only one treatment unit
     
-    #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
+    check <- sum(colSums(W != 0) != 0)
+    if (check>1){
+      stop('More than one unit is specified as treated in W. Please check the assigment matrix.')
+    }#do I have to put an else or will this just short circuit it? I'm not going to put an else in and I'll ask Lea if that's okay.
+    ind_treatment <- which.max(colSums(W!=0))
+    check <- colSums(W)[ind_treatment]
+    T_0 <- dim(Z)[ind_treatment]
+    T_1 <- dim(Y)[ind_treatment] - dim(Z)[ind_treatment]
+    #okay so I might have an off by one error (because I'm not sure if we count the treatment year with T0 or with T1), but I *THINK* that here, check should be 
+    #just equal to T1 I think. So we'll check that
+    if (check!=T_1){
+      stop('Treated years recorded in W do not match those implied by Y and Z.')
+    }
+    
+    
+     
+    
+    ####assign ind_treatment####
+    
+    
+    
+    
     
     ################ Find weights ################
     
@@ -70,9 +98,10 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     if(method == "elastic_net"){
       
       #find tuning parameters using cross-validation
-      params <- tuning_parameters_elastic_net(Y,Z,X, tune_params[[1]], tune_params[[2]])
+      params <- tuning_parameters_elastic_net(Y, Z, X, tune_params[[1]], tune_params[[2]])
       
       #find imputed Y weights using the tuning parameters we found
+      
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
       
       #reassign tune_params to plug into the standard error functions
@@ -82,17 +111,16 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     #synthetic control
     if(method == "synth"){
       
-      #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
-      tune_data <- prep_data(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
-      Y_tune <- tune_data$Y
-      Z_tune <- tune_data$Z
-      X_tune <- tune_data$X
+      
       
       #tune_params needs to be this list for the standard error functions later.
-      tune_params <- list("Y" = Y_tune, "Z" = Z_tune, "X" = X_tune)
+      #tune_params <- list("Y" = tune_params[[1]], "Z" = tune_params[[2]], "X" = tune_params[[3]])
+      #tune params should actually already look like this now.
       
       #find tuning parameters (vweights)
-      v <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
+      #tune_params is going to be a pre-made Y_tune, Z_tune, X_tune.
+      #don't need to rewrite this anymore
+      v <- tuning_parameters_synth_new(tune_params[[1]], tune_params[[2]], tune_params[[3]])
       
       #find synthetic control weights
       w <- find_weights_synth_new(Y, Z, X, vweight = v)
@@ -143,12 +171,12 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     ################ Output ################
     
     if(method == "elastic_net"){
-      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
+      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
     }else{
       if(method == "best_subset"){
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
       }else{
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"= dim(Y)[1]-dim(Z)[1])
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
       }
     }
   }
@@ -158,6 +186,8 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
 ###############################
 ##### Auxiliary functions #####
 ###############################
+
+#we don't use prep_data anymore, but I'm going to keep it here because we might use this function to prep the german data. I'm not going to delete yet.
 
 
 #Prepare the data for finding tuning parameters and weights
