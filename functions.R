@@ -179,7 +179,7 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
         out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
       }else{
         out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
-      }
+        
     }
   }
 }
@@ -825,6 +825,13 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   Y <- Y[,-ind_treatment]
   Z <- Z[,-ind_treatment]
   X <- X[,-ind_treatment]
+  
+  # if we're doing synth, we need to also do this to the synth tuning parameter matrices
+  if(method == "synth"){
+    tune_params$Y <- tune_params$Y[,-ind_treatment]
+    tune_params$Z <- tune_params$Z[,-ind_treatment]
+    tune_params$X <- tune_params$X[,-ind_treatment]
+  }
   
   ################# Loop across units to find standard error ####################
   
