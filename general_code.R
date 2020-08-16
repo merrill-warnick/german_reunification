@@ -42,7 +42,9 @@ fit_subs <- general_estimate(d, method = "best_subset",
                             prep_params = prep_params_list,
                              ind_treatment = 7)
 
-
+fit_diff_in_diff <- general_estimate(d, method = "diff_in_diff", 
+                                     prep_params = prep_params_list,
+                                     ind_treatment = 7)
 tune_synth_spec <- list(
   list("industry", 1971:1980, c("mean")),
   list("schooling",c(1970,1975), c("mean")),
