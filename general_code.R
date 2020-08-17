@@ -151,15 +151,16 @@ lines(1960:2003, fit_diff_in_diff$Y_est, lty = 1, col= "yellow")
 lines(1960:2003, fit_elastic_net$Y_est, lty = 1, col= "purple4")
 lines(1960:2003, fit_subs$Y_est, lty = 1, col= "orange")
 lines(1960:2003, fit_synth$Y_est, lty = 1, col= "blue")
+lines(1960:2003, fit_constr_reg$Y_est, lty = 1, col= "green4")
 abline(v = 1989, col="black")
 abline(v = 1960, col = "grey96")
 abline(v = 1970, col = "grey96")
 abline(v = 1980, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 2000, col = "grey96")
-legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)", "Original synth."), col=c("red","yellow","purple4","orange","blue"),lty=c(2,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
+legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)", "Original synth.", "Regression w/restrictions"), col=c("red","yellow","purple4","orange","blue", "green4"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
 arrows(x0=1987, y0=32500,x1=1988, y1=32499, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
-text(x=1983,y=32500,pos=4,label = "Policy", cex = 0.6)
+text(x=1982,y=32500,pos=4,label = "Policy", cex = 0.6)
 
 ### Standard Errors
 tau <- cbind(fit_diff_in_diff$Y_true[31:44]-fit_synth$Y_est[31:44],fit_diff_in_diff$Y_true[31:44]-fit_elastic_net$Y_est[31:44]) # cbind for each method
