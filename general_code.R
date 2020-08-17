@@ -95,7 +95,12 @@ fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_i
 #################################
 
 # Save matrices for future reference and plots
-
+writeMat("germ_synth_nocov.mat", 
+         w = fit_synth$w, int = fit_synth$int, 
+         Y_est = fit_synth$Y_est, Y_true = fit_synth$Y_true, 
+         std_err_i = fit_synth$std_err_i, 
+         std_err_t = fit_synth$std_err_t, 
+         std_err_it = fit_synth$std_err_it)
 # Elastic Net 
 #save(list = c("w", "int", "Y_est", "Y_true", 
 #              "std_err_i", "std_err_t", "std_err_it"), 
