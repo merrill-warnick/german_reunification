@@ -181,6 +181,7 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
         out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
         
     }
+    }
   }
 }
 
