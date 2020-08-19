@@ -19,16 +19,20 @@ library(LowRankQP)
 #in synthetic control stuff and ind_treatment is going to be not necessarily one.
 # Yes, agreed! The way we have it now, it should not be defualted to 1
 
-general_estimate <- function(data_df, method = NULL, prep_params, tune_params = NULL, ind_treatment){
+general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
   
   ## INPUT:
   #
-  # data_df:        The input dataframe 
+  # Y:              matrix of outcome variables for treated unit and controls.
+  #                   (Note that currently our code only will work for a single treated unit and many control units)
+  # Z:              matrix of pre-treatment outcomes for treated unit and controls 
+  # X:              matrix of covariates for treated unit and controls 
+  # W:              Vector that specifies which unit is treated
   # method:         "diff_in_diff", "elastic_net", "constr_reg", "synth","best_subset"; 
-  # prep_params:    vector of parameters for dataprep. The inputs needed are explained in the prep_data function
   # tune_params:    vector of parameters needed for methods that need cross-validation for tuning parameters.
   #                   for elastic_net, it should have a lambda grid and an alpha grid 
-  #                   for synth, it should have a vector of special predictors for dataprep and a year vector (replacing inputs 5 and 7 of prep_params)
+  #                   for synth, it should be Y_tune, Z_tune, X_tune matrices that have been previously prepared like X, Y, Z but use the years and predictors 
+  #                     for synthetic control cross-validations
   # ind_treatment:  the column that corresponds to the treated unit
   
   ## OUTPUT:
@@ -51,18 +55,14 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     stop('Please specify one of the following methods: "diff_in_diff", "elastic_net", "constr_reg", "synth" or "best_subset"!')
   }else{
     
-    ################ Prepare data ################
     
-    #prep_data uses the dataprep function to make the data usable for most of the methods. See the prep_data function for information on the inputs.
-    data <- prep_data(data_df,ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], prep_params[[5]], prep_params[[6]], prep_params[[7]], prep_params[[8]])
+    ################ Find Treated Unit ##############
+
+    if (sum(W!=0>1)){
+      stop('More than one unit is specified as treated in W. Please check the assigment matrix.')
+    }
     
-    #extract data from the output of prep_data to use with later functions
-    #I fixed the bug here I think...let me know if it still doesn't work.
-    Y<- data$Y
-    Z<- data$Z
-    X<- data$X
-    
-    #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
+    ind_treatment <- which.max(colSums(W!=0))
     
     ################ Find weights ################
     
@@ -70,9 +70,10 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     if(method == "elastic_net"){
       
       #find tuning parameters using cross-validation
-      params <- tuning_parameters_elastic_net(Y,Z,X, tune_params[[1]], tune_params[[2]])
+      params <- tuning_parameters_elastic_net(Y, Z, X, tune_params[[1]], tune_params[[2]])
       
       #find imputed Y weights using the tuning parameters we found
+      
       w <- find_weights_elastic_net(Y, Z, X, params$alpha, params$lambda, tune_params[[1]]) 
       
       #reassign tune_params to plug into the standard error functions
@@ -81,21 +82,14 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     #synthetic control
     if(method == "synth"){
-      
-      #need to run prep_data again for synthetic control tuning parameters. This will be used in the standard error calculation as well.
-      tune_data <- prep_data(data_df, ind_treatment, prep_params[[1]], prep_params[[2]], prep_params[[3]], prep_params[[4]], tune_params[[1]], prep_params[[6]], tune_params[[2]], prep_params[[8]])
-      Y_tune <- tune_data$Y
-      Z_tune <- tune_data$Z
-      X_tune <- tune_data$X
-      
-      #tune_params needs to be this list for the standard error functions later.
-      tune_params <- list("Y" = Y_tune, "Z" = Z_tune, "X" = X_tune)
-      
+   
       #find tuning parameters (vweights)
-      v <- tuning_parameters_synth_new(Y_tune, Z_tune, X_tune)
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X)
       
       #find synthetic control weights
-      w <- find_weights_synth_new(Y, Z, X, vweight = v)
+      w <- find_weights_synth(Y, Z, X, vweight = v)
+      
+      
     }
     
     # Best subset
@@ -127,13 +121,13 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     
     
     ################ Get estimate ################
-
+    
     Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights
     Y_true = Y[,1]
     
     
     ################ Find Standard Error ################
-
+    
     #don't need to specify ind_treat since they're always in the 1 slot
     std_err_i = general_se(Y, Z, X, method = method, se_method = "unit", tune_params = tune_params)
     std_err_t = general_se(Y, Z, X, method = method, se_method = "time", tune_params = tune_params)
@@ -143,16 +137,18 @@ general_estimate <- function(data_df, method = NULL, prep_params, tune_params = 
     ################ Output ################
     
     if(method == "elastic_net"){
-      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
+      out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true, "alpha_opt" = params$alpha, "lambda_opt" = params$lambda,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
     }else{
       if(method == "best_subset"){
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"=dim(Y)[1]-dim(Z)[1])
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"n_opt" = n_opt, "std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
       }else{
-        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0"= dim(Z)[1],"T_1"= dim(Y)[1]-dim(Z)[1])
+        out <- list("int" = w$intercept, "w" = w$weights, "Y_est" = Y_est, "Y_true" = Y_true,"std_err_i" = std_err_i, "std_err_t" = std_err_t, "std_err_it" = std_err_it, "T_0" = T_0, "T_1" = T_1)
+        
       }
     }
   }
 }
+
 
 
 ###############################
