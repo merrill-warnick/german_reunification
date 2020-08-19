@@ -953,6 +953,13 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
   Z <- Z[,-ind_treatment]
   X <- X[,-ind_treatment]
   
+  # if we're doing synth, we need to also do this to the synth tuning parameter matrices
+  if(method == "synth"){
+    tune_params$Y <- tune_params$Y[,-ind_treatment]
+    tune_params$Z <- tune_params$Z[,-ind_treatment]
+    tune_params$X <- tune_params$X[,-ind_treatment]
+  }
+  
   for (i in 1:(N-1)) {
     
     std_err_temp <- matrix(0, s, 1) # Storage matrix for temporary standard error for each time period
