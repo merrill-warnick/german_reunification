@@ -63,17 +63,15 @@ Z <- cbind(Z1, Z0)
 
 source('functions.R')
 
-vw_old <- tuning_parameters_synth(Y, Z, X, 1)
-
-#vw <- c(1, 0.472278279279498, 1.42088591771919, 12501611.8714282, 0.0990703167049116)
-
-
-vw_id <- c(1,1,1,1,1,1,1)
-
-w <- find_weights_synth(Y, Z, X, vweight = vw_id)
-
 
 ind_treat <- 1
+
+vw <- tuning_parameters_synth(Y, Z, X, ind_treat)
+
+
+w <- find_weights_synth(Y, Z, X, vweight = vw)
+
+
 
 synth.out <- 
   synth(
@@ -84,6 +82,18 @@ synth.out <-
     
   )
 
+X1 <- as.matrix(X[, ind_treat])
+X0 <- as.matrix(X[, -ind_treat])
+Z1 <- as.matrix(Z[, ind_treat])
+Z0 <- as.matrix(Z[, -ind_treat])
+
+w <- as.matrix(w$weights)
+
+
+
+loss_55 <- t(X1 - t(t(w) %*% t(X0))) %*% diag(vw) %*% (X1 - t(t(w) %*% t(X0)))
+
+loss_56 <- t(Z1 - t(t(w) %*% t(Z0))) %*% (Z1 - t(t(w) %*% t(Z0)))
 
 
 
@@ -106,22 +116,9 @@ fit_elastic_net <- general_estimate(X = X, Y = Y, Z = Z,method = "elastic_net",
                                     ind_treatment = 1)
 
 
-source('functions.R')
 
 
-boat_synth <- 
-  synth(
-    X1 = as.matrix(X[, ind_treat]),
-    X0 = as.matrix(X[, -ind_treat]),
-    Z1 = as.matrix(Z[, ind_treat]),
-    Z0 = as.matrix(Z[, -ind_treat]),
-    quadopt = "LowRankQP"
-  )
-
-
-vw_old <- tuning_parameters_synth(Y, Z, X, 1)
-
-vw <- c(1, 0.472278279279498, 1.42088591771919, 12501611.8714282, 0.0990703167049116)
+vw <- tuning_parameters_synth(Y, Z, X, 1)
 
 
 #the big difference is that there are way more non-zero weights
@@ -135,10 +132,26 @@ w_check <- synth(
   X0 = as.matrix(X[, -ind_treat]),
   Z1 = as.matrix(Z[, ind_treat]),
   Z0 = as.matrix(Z[, -ind_treat]),
-  vweight = boat_synth$solution.v,
+  vweight = vw,
 )
 
-w <- find_weights_synth(Y, Z, X, vweight = boat_synth$solution.v)
+w <- find_weights_synth(Y, Z, X, vweight = vw)
+
+
+
+X1 <- as.matrix(X[, ind_treat])
+X0 <- as.matrix(X[, -ind_treat])
+Z1 <- as.matrix(Z[, ind_treat])
+Z0 <- as.matrix(Z[, -ind_treat])
+
+w <- as.matrix(w$weights)
+
+
+
+loss_55 <- t(X1 - t(t(w) %*% t(X0))) %*% diag(vw) %*% (X1 - t(t(w) %*% t(X0)))
+
+loss_56 <- t(Z1 - t(t(w) %*% t(Z0))) %*% (Z1 - t(t(w) %*% t(Z0)))
+
 
 
 #goal: look at synthetic control in Matlab and figure out what is going on
