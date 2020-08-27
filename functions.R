@@ -58,7 +58,7 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
     
     ################ Find Treated Unit ##############
 
-    if (sum(W!=0>1)){
+    if (sum(W==1)>1){
       stop('More than one unit is specified as treated in W. Please check the assigment matrix.')
     }
     
@@ -84,11 +84,11 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
     if(method == "synth"){
    
       #find tuning parameters (vweights)
-      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X)
+      
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, ind_treat = ind_treatment)
       
       #find synthetic control weights
-      w <- find_weights_synth(Y, Z, X, vweight = v)
-      
+      w <- find_weights_synth(Y, Z, X, vweight = v, ind_treat = ind_treatment)
       
     }
     
@@ -424,17 +424,22 @@ tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
   #
   # vw:             the vweights for synthetic control estimation
   
+  
   ############## Fit data to extract vweights ####################
+  
+  #there is an error here but I have no idea what it is
+  
   synth.out <- 
     synth(
       X1 = as.matrix(X[, ind_treat]),
       X0 = as.matrix(X[, -ind_treat]),
       Z1 = as.matrix(Z[, ind_treat]),
       Z0 = as.matrix(Z[, -ind_treat]),
-      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
+      quadopt = 'LowRankQP'
     )
   
   ############# output vweights ####################
+  
   vw <- synth.out$solution.v
   return(vw)
 }
@@ -513,13 +518,15 @@ find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
   # w:              the estimated synthetic control weights and an intercept (which is zero)
   
   ############## Fit data to extract vweights ####################
+  
   synth.out <- 
     synth(
       X1 = as.matrix(X[, ind_treat]),
       X0 = as.matrix(X[, -ind_treat]),
       Z1 = as.matrix(Z[, ind_treat]),
       Z0 = as.matrix(Z[, -ind_treat]),
-      custom.v=as.numeric(vweight)
+      custom.v=as.numeric(vweight),
+      quadopt = "LowRankQP"
     )
   
   w<- list("intercept" = 0, "weights" = synth.out$solution.w)
@@ -811,7 +818,7 @@ se_unit <- function(Y,Z,X, method, tune_params, ind_treatment=1){
     if(method == "synth"){
       #tune params needs to be a list with Y_tune, Z_tune, and X_tune
       #redraw vweights using the placebo dataset.
-      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, i)
       w <- find_weights_synth(Y, Z, X, i, v)
     }
     
@@ -864,7 +871,7 @@ se_time <- function(Y,Z,X, method, tune_params, ind_treatment=1){
       w <- find_weights_did(Y,Z,X, ind_treatment)
     }
     if(method == "synth"){
-      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, ind_treatment)
+      v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, ind_treatment)
       w <- find_weights_synth(Y, Z, X, ind_treatment, v)
     }
     
@@ -929,7 +936,7 @@ se_it <- function(Y,Z,X, method, tune_params, ind_treatment=1){
         w <- find_weights_did(Y,Z_temp,X, i)
       }
       if(method == "synth"){
-        v <- tuning_parameters_synth(tune_params$Y, tune_params$Z_tune, tune_params$X_tune, i)
+        v <- tuning_parameters_synth(tune_params$Y, tune_params$Z, tune_params$X, i)
         w <- find_weights_synth(Y, Z, X, i, v)
       }
       

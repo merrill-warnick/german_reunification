@@ -60,6 +60,23 @@ Z1 <- as.matrix(Y1[index_pre,1])
 # [Z1,Z0]
 Z <- cbind(Z1, Z0)
 
+
+
+
+W <- matrix(0, 1, dim(Y)[2])
+
+W[1] <- 1
+
+
+tune_params_synth <- list('Y' = Y, 'Z' = Z, 'X' = X)
+
+#run synth so we can put it in the tables.
+#Later I'll add these to general code.
+
+smok_synth <- general_estimate(Y, Z, X, W, method = 'synth', tune_params = tune_params_synth)
+
+
+
 ##################
 #### Boatlift ####
 ##################
@@ -69,11 +86,12 @@ X <- dat$X
 Y <- dat$Y
 Z <- dat$Z
 
-fit_elastic_net <- general_estimate(X = X, Y = Y, Z = Z,method = "elastic_net", 
-                                    tune_params = list(c(seq(from = 1e-04, to = 1e-03, by = 1e-04),
-                                                         seq(from = 2e-03, to = 1e-02, by = 1e-03),
-                                                         seq(from = 2e-02, to = 1e-01, by = 1e-02),
-                                                         seq(from = 2e-01, to = 100, by = 1e-01), 
-                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)),
-                                    ind_treatment = 1)
+W <- matrix(0, 1, dim(Y)[2])
 
+W(1) <- 1
+
+
+#run synth so we can put it in the tables.
+#Later I'll add these to general code.
+
+boat_synth <- general_estimate(Y, Z, X, W, method = 'synth', tune_params = list("Y" = Y, "Z" = Z, "X" = X))

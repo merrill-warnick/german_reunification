@@ -87,6 +87,8 @@ fit_subs <- general_estimate(data$Y, data$Z, data$X, W, method = "best_subset")
 
 #note: The synth version *is* pretty slow since we re-draw. It takes about an hour to run...but i spose it would still be pretty slow anyway I guess.
 #Should we supress the output?
+
+source("functions.R")
 fit_synth <- general_estimate(data$Y, data$Z, data$X, W, method = "synth", 
                               tune_params = tune_params_synth)
 
