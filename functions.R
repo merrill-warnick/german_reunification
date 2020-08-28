@@ -120,6 +120,14 @@ general_estimate <- function(Y, Z, X, W, method = NULL, tune_params = NULL){
     }
     
     
+    ################ Find T0 and T1 ##############
+    
+    T_0 <- dim(Z)[1]
+    
+    T <- dim(Y)[1]
+    
+    T_1 <- T - T_0
+    
     ################ Get estimate ################
     
     Y_est = rep(w$intercept,nrow(Y)) + Y[,-1]%*%w$weights

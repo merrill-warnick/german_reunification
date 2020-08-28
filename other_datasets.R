@@ -75,7 +75,11 @@ tune_params_synth <- list('Y' = Y, 'Z' = Z, 'X' = X)
 
 smok_synth <- general_estimate(Y, Z, X, W, method = 'synth', tune_params = tune_params_synth)
 
+smok_synth_tau <- smok_synth$Y_true - smok_synth$Y_est
 
+#1990 should be 29?
+#1995 should be 34
+#2000 should be 39
 
 ##################
 #### Boatlift ####
@@ -95,3 +99,6 @@ W(1) <- 1
 #Later I'll add these to general code.
 
 boat_synth <- general_estimate(Y, Z, X, W, method = 'synth', tune_params = list("Y" = Y, "Z" = Z, "X" = X))
+
+
+boat_synth_tau <- boat_synth$Y_true - boat_synth$Y_est
