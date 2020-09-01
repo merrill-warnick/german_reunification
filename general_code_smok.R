@@ -21,118 +21,62 @@ d <- read.dta("repgermany.dta")
 ########## Data Prep ###########
 ################################
 
-#first, prepare the data to be used for choosing v-weights in synth
 
-dataprep.out <-
-  dataprep(
-    foo = d,
-    predictors    = c("gdp","trade","infrate"),
-    dependent     = "gdp",
-    unit.variable = 1,
-    time.variable = 3,
-    special.predictors = list(
-      list("industry", 1971:1980, c("mean")),
-      list("schooling",c(1970,1975), c("mean")),
-      list("invest70" ,1980, c("mean"))
-    ),
-    treatment.identifier = ind_treat,
-    controls.identifier = unique(d$index)[-7],
-    time.predictors.prior = 1971:1980,
-    time.optimize.ssr = 1981:1990,
-    unit.names.variable = 2,
-    time.plot = 1960:2003
-  )
+data <- read.table("MLAB_data.txt")
+## Built Indices
+# California is state no 3, stored in the last column no 39
+index_tr <- c(39)
+# 38 Control states are 1,2 & 4,5,...,38, stored in columns 1 to 38
+index_co <- c(1:38)
 
-#Extract the treatment and control units from the dataprep object  
-X0 <- dataprep.out$X0
-X1 <- dataprep.out$X1
+# Predcitors are stored in rows 2 to 8
+index_predict <- c(2:8)
+# Outcome Data is stored in rows 9 to 39; for 1970, 1971,...,2000
+index_Y <- c(9:39)
 
-Z1 <- dataprep.out$Z1
-Z0 <- dataprep.out$Z0
+# The pre-treatment time periods are 1970--1980
+index_pre <- c(1:19)
 
-Y1 <- dataprep.out$Y1plot
-Y0 <- dataprep.out$Y0plot
+## Define Matrices for Predictors
+# X0 : 7 X 38 matrix (7 smoking predictors for 38 control states)
+X0 <- as.matrix(data[index_predict,index_co])
 
-#Re-bind data so that the treated unit is in the first position
+# X1 : 10 X 1 matrix (10 crime predictors for 1 treated states)
+X1 <- as.matrix(data[index_predict,index_tr])
+
 # [X1,X0]
 X <- cbind(X1, X0)
+
+## Define Matrices for Outcome Data
+# Y0 : 31 X 38 matrix (31 years of smoking data for 38 control states)
+Y0 <- as.matrix(data[index_Y,index_co])
+# Y1 : 31 X 1 matrix (31 years of smoking data for 1 treated state)
+Y1 <- as.matrix(data[index_Y,index_tr])
 
 # [Y1,Y0]
 Y <- cbind(Y1, Y0)
 
+# Now pick Z matrices, i.e. the pretreatment period
+# over which the loss function should be minmized
+# Here we pick Z to go from 1970 to 1988 
+# Z0 : 19 X 38 matrix (19 years of pre-treatment smoking data for 38 control states)
+Z0 <- as.matrix(Y0[index_pre,])
+# Z1 : 19 X 1 matrix (19 years of pre-treatment smoking data for 1 treated state)
+Z1 <- as.matrix(Y1[index_pre,1])
+
 # [Z1,Z0]
 Z <- cbind(Z1, Z0)
 
-tune_params_synth <- list( "X" = X, "Y" = Y, "Z" = Z)
 
 
 
-#prepare the actual estimation data
+W <- matrix(0, 1, dim(Y)[2])
 
-dataprep.out <-
-    dataprep(
-      foo = d,
-      predictors    = c("gdp","trade","infrate"),
-      dependent     = "gdp",
-      unit.variable = 1,
-      time.variable = 3,
-      special.predictors = list(
-        list("industry" ,1981:1990, c("mean")),
-        list("schooling",c(1980,1985), c("mean")),
-        list("invest80" ,1980, c("mean"))
-      ),
-      treatment.identifier = ind_treat,
-      controls.identifier = unique(d$index)[-7],
-      time.predictors.prior = 1981:1990,
-      time.optimize.ssr = 1960:1989,
-      unit.names.variable = 2,
-      time.plot = 1960:2003
-    )
-  
-#Extract the treatment and control units from the dataprep object  
-X0 <- dataprep.out$X0
-X1 <- dataprep.out$X1
-  
-Z1 <- dataprep.out$Z1
-Z0 <- dataprep.out$Z0
-  
-Y1 <- dataprep.out$Y1plot
-Y0 <- dataprep.out$Y0plot
-  
-#Re-bind data so that the treated unit is in the first position
-# [X1,X0]
-X <- cbind(X1, X0)
-  
-# [Y1,Y0]
-Y <- cbind(Y1, Y0)
-  
-# [Z1,Z0]
-Z <- cbind(Z1, Z0)
-  
-output <- list( "X" = X, "Y" = Y, "Z" = Z)
+W[1] <- 1
 
 
-#"spec" and "years" are the parameters that are different here.
-tune_params_synth <- prep_data(d = d, 
-                               ind_treat = 7,
-                               pred = c("gdp","trade","infrate"), 
-                               dep = "gdp", 
-                               u = 1,
-                               t = 3, 
-                               spec = list(
-                                 list("industry", 1971:1980, c("mean")),
-                                 list("schooling",c(1970,1975), c("mean")),
-                                 list("invest70" ,1980, c("mean"))
-                               ),
-                               cont_set = unique(d$index)[-7],
-                               years = c(1971, 1980, 1981, 1990, 1960, 2003),
-                               names = 2)
-
-#prepare W:
-
-W <- matrix(0, 1, dim(data$Y)[2])
-
-W[7] <- 1
+#in this setting, we just use the same Y, Z, X to choose v-weights in synth
+tune_params_synth <- list('Y' = Y, 'Z' = Z, 'X' = X)
 
 
 ###################################################
@@ -165,7 +109,7 @@ fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_i
 #save(list = c("w", "int", "Y_est", "Y_true", 
 #              "std_err_i", "std_err_t", "std_err_it"), 
 #     file = "germ_elast_nocov.RData")
-writeMat("germ_elast_nocov.mat", 
+writeMat("smok_elast_nocov.mat", 
          w = fit_elastic_net$w, int = fit_elastic_net$int, 
          Y_est = fit_elastic_net$Y_est, Y_true = fit_elastic_net$Y_true, 
          std_err_i = fit_elastic_net$std_err_i, 
@@ -176,7 +120,7 @@ writeMat("germ_elast_nocov.mat",
 #save(list = c("w", "int", "Y_est", "Y_true", 
 #              "std_err_i", "std_err_t", "std_err_it"), 
 #     file = "germ_subs_nocov.RData")
-writeMat("germ_subs_nocov.mat", 
+writeMat("smok_subs_nocov.mat", 
          w = fit_subs$w, int = fit_subs$int, 
          Y_est = fit_subs$Y_est, Y_true = fit_subs$Y_true, 
          std_err_i = fit_subs$std_err_i, 
@@ -187,7 +131,7 @@ writeMat("germ_subs_nocov.mat",
 #save(list = c("w", "int", "Y_est", "Y_true", 
 #              "std_err_i", "std_err_t", "std_err_it"), 
 #     file = "germ_constr_reg_nocov.RData")
-writeMat("germ_constr_reg_nocov.mat", 
+writeMat("smok_constr_reg_nocov.mat", 
          w = fit_constr_reg$w, int = fit_constr_reg$int, 
          Y_est = fit_constr_reg$Y_est, Y_true = fit_constr_reg$Y_true, 
          std_err_i = fit_constr_reg$std_err_i, 
@@ -199,46 +143,51 @@ writeMat("germ_constr_reg_nocov.mat",
 ###########################
 
 ## Load data -> or can also simply call from before
-data_did <- readMat('germ_did_nocov.mat')
-data_elast <- readMat('germ_elast_nocov.mat')
-data_subset <- readMat('germ_subs_nocov.mat')
-data_synth <- readMat('germ_synth.mat')
-data_constr <- readMat('germ_constr_reg_nocov.mat')
+data_did <- readMat('smok_did_nocov.mat')
+data_elast <- readMat('smok_elast_nocov.mat')
+data_subset <- readMat('smok_subs_nocov.mat')
+data_synth <- readMat('smok_synth.mat')
+data_constr <- readMat('smok_constr_reg_nocov.mat')
 
 ### Treatment figure
-plot(1960:2003, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "West Germany: per capita GDP", xlab = "Year", ylab = "", las = 1, bty = 'L')
-lines(1960:2003, data_did$Y.did, lty = 1, col= "yellow")
-lines(1960:2003, data_elast$Y.elast, lty = 1, col= "purple4")
-lines(1960:2003, data_subset$Y.subs, lty = 1, col= "orange")
-lines(1960:2003, data_synth$Y.synth, lty = 1, col= "blue")
+plot(1970:2000, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "California: Smoking per capita", xlab = "Year", ylab = "", las = 1, bty = 'L')
+lines(1970:2000, data_did$Y.did, lty = 1, col= "yellow")
+lines(1970:2000, data_elast$Y.elast, lty = 1, col= "purple4")
+lines(1970:2000, data_subset$Y.subs, lty = 1, col= "orange")
+lines(1970:2000, data_synth$Y.synth, lty = 1, col= "blue")
 abline(v = 1989, col="black")
-abline(v = 1960, col = "grey96")
-abline(v = 1970, col = "grey96")
+abline(v = 1975, col = "grey96")
 abline(v = 1980, col = "grey96")
+abline(v = 1985, col = "grey96")
 abline(v = 1990, col = "grey96")
-abline(v = 2000, col = "grey96")
+abline(v = 1995, col = "grey96")
 legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)", "Original synth."), col=c("red","yellow","purple4","orange","blue"),lty=c(2,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
 arrows(x0=1987, y0=32500,x1=1988, y1=32499, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
 text(x=1981,y=32500,pos=4,label = "Reunification", cex = 0.5)
 
 ### Standard Errors
-tau <- cbind(data_did$Y.true[31:44]-data_synth$Y.synth[31:44],data_did$Y.true[31:44]-data_elast$Y.elast[31:44]) # cbind for each method
+
+tau <- cbind(data_did$Y.true[19:31]-data_synth$Y.synth[19:31],data_did$Y.true[19:31]-data_elast$Y.elast[19:31]) # cbind for each method
 std_err <- cbind(data_synth$std.err.synth.i, data_elast$std.err.elast.i)
 
-plot(1990:2003, tau[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1990,2003), col = "blue", main = "West Germany: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
-lines(1990:2003, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
-lines(1990:2003, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
-lines(1990:2003, tau[,2], lty = 1, col= "plum2")
-lines(1990:2003, tau[,2]+1.96*std_err[,2], lty = 2, col= "plum2")
-lines(1990:2003, tau[,2]-1.96*std_err[,2], lty = 2, col= "plum2")
+plot(1989:2000, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1989,2000), col = "blue", main = "California: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
+lines(1989:2000, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
+lines(1989:2000, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
+lines(1989:2000, tau[,2], lty = 1, col= "plum2")
+lines(1989:2000, tau[,2]+1.96*std_err[,2], lty = 2, col= "plum2")
+lines(1989:2000, tau[,2]-1.96*std_err[,2], lty = 2, col= "plum2")
 abline(h = 0, col= "black")
 abline(v = 1990, col = "grey96")
+abline(v = 1991, col = "grey96")
 abline(v = 1992, col = "grey96")
+abline(v = 1993, col = "grey96")
 abline(v = 1994, col = "grey96")
+abline(v = 1995, col = "grey96")
 abline(v = 1996, col = "grey96")
+abline(v = 1997, col = "grey96")
 abline(v = 1998, col = "grey96")
+abline(v = 1999, col = "grey96")
 abline(v = 2000, col = "grey96")
-abline(v = 2002, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Counterfactual
@@ -266,7 +215,9 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)
 theme_set(theme_bw())
 
-control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL")
+
+
+control_names <- c('AL', 'AR', 'CO', 'CT', 'DE', 'GA', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NM', 'NC', 'ND', 'OH', 'OK', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WV', 'WI', 'WY')
 weights_synth <- as.data.frame(cbind(control_names,weights[,3]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))

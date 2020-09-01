@@ -35,7 +35,7 @@ dataprep.out <-
       list("schooling",c(1970,1975), c("mean")),
       list("invest70" ,1980, c("mean"))
     ),
-    treatment.identifier = ind_treat,
+    treatment.identifier = 7,
     controls.identifier = unique(d$index)[-7],
     time.predictors.prior = 1971:1980,
     time.optimize.ssr = 1981:1990,
@@ -81,7 +81,7 @@ dataprep.out <-
         list("schooling",c(1980,1985), c("mean")),
         list("invest80" ,1980, c("mean"))
       ),
-      treatment.identifier = ind_treat,
+      treatment.identifier = 7,
       controls.identifier = unique(d$index)[-7],
       time.predictors.prior = 1981:1990,
       time.optimize.ssr = 1960:1989,
