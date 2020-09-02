@@ -7,8 +7,6 @@ library(ggplot2)
 
 source('functions.R')
 
-# Load data
-d <- read.dta("repgermany.dta")
 
 ################################
 ########## Parameters ##########
@@ -20,6 +18,10 @@ d <- read.dta("repgermany.dta")
 ################################
 ########## Data Prep ###########
 ################################
+
+# Load data
+d <- read.dta("repgermany.dta")
+
 
 #first, prepare the data to be used for choosing v-weights in synth
 

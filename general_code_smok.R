@@ -7,9 +7,6 @@ library(ggplot2)
 
 source('functions.R')
 
-# Load data
-d <- read.dta("repgermany.dta")
-
 ################################
 ########## Parameters ##########
 ################################
