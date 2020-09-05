@@ -29,7 +29,7 @@ data <- list('Y' <- dat$Y, 'Z' = dat$Z, 'X' = dat$X)
 
 W <- matrix(0, 1, dim(Y)[2])
 
-W(1) <- 1
+W[1] <- 1
 
 #in this setting, we just use the same Y, Z, X to choose v-weights in synth
 tune_params_synth <- data
