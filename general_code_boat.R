@@ -41,7 +41,9 @@ tune_params_synth <- data
 
 
 fit_elastic_net <- general_estimate(data$Y, data$Z, data$X, W, method = "elastic_net", 
-                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                    tune_params = list(c(seq(from = 1e-04, to = 1e-03, by = 1e-04),
+                                                         seq(from = 2e-03, to = 1e-02, by = 1e-03),
+                                                         seq(from = 2e-02, to = 1e-01, by = 1e-02),
                                                          seq(from = 2e-01, to = 100, by = 1e-01), 
                                                          seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
 
