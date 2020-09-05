@@ -71,6 +71,7 @@ W <- matrix(0, 1, dim(Y)[2])
 
 W[1] <- 1
 
+data <- list('Y' = Y, 'Z' = Z, 'X' = X)
 
 #in this setting, we just use the same Y, Z, X to choose v-weights in synth
 tune_params_synth <- list('Y' = Y, 'Z' = Z, 'X' = X)
