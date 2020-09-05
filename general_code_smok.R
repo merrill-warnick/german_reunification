@@ -104,37 +104,49 @@ fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_i
 # Save matrices for future reference and plots
 
 # Elastic Net 
-#save(list = c("w", "int", "Y_est", "Y_true", 
-#              "std_err_i", "std_err_t", "std_err_it"), 
-#     file = "germ_elast_nocov.RData")
-writeMat("smok_elast_nocov.mat", 
+save(fit_elastic_net, file = "smoke_elast_nocov.RData")
+writeMat("smoke_elast_nocov.mat", 
          w = fit_elastic_net$w, int = fit_elastic_net$int, 
          Y_est = fit_elastic_net$Y_est, Y_true = fit_elastic_net$Y_true, 
          std_err_i = fit_elastic_net$std_err_i, 
          std_err_t = fit_elastic_net$std_err_t, 
          std_err_it = fit_elastic_net$std_err_it)
 
+# Constrained regression
+save(fit_constr_reg, file = "smoke_constr_reg_nocov.RData")
+writeMat("smoke_constr_reg_nocov.mat", 
+         w = fit_constr_reg$w, int = fit_constr_reg$int, 
+         Y_est = fit_constr_reg$Y_est, Y_true = fit_constr_reg$Y_true, 
+         std_err_i = fit_constr_reg$std_err_i, 
+         std_err_t = fit_constr_reg$std_err_t, 
+         std_err_it = fit_constr_reg$std_err_it)
+
 # Best subset 
-#save(list = c("w", "int", "Y_est", "Y_true", 
-#              "std_err_i", "std_err_t", "std_err_it"), 
-#     file = "germ_subs_nocov.RData")
-writeMat("smok_subs_nocov.mat", 
+save(fit_subs, file = "smoke_subs_nocov.RData")
+writeMat("smoke_subs_nocov.mat", 
          w = fit_subs$w, int = fit_subs$int, 
          Y_est = fit_subs$Y_est, Y_true = fit_subs$Y_true, 
          std_err_i = fit_subs$std_err_i, 
          std_err_t = fit_subs$std_err_t, 
          std_err_it = fit_subs$std_err_it)
 
-# Constrained regression
-#save(list = c("w", "int", "Y_est", "Y_true", 
-#              "std_err_i", "std_err_t", "std_err_it"), 
-#     file = "germ_constr_reg_nocov.RData")
-writeMat("smok_constr_reg_nocov.mat", 
-         w = fit_constr_reg$w, int = fit_constr_reg$int, 
-         Y_est = fit_constr_reg$Y_est, Y_true = fit_constr_reg$Y_true, 
-         std_err_i = fit_constr_reg$std_err_i, 
-         std_err_t = fit_constr_reg$std_err_t, 
-         std_err_it = fit_constr_reg$std_err_it)
+# Synthetic Control
+save(fit_synth, file = "smoke_synth_nocov.RData")
+writeMat("smoke_synth_nocov.mat", 
+         w = fit_synth$w, int = fit_synth$int, 
+         Y_est = fit_synth$Y_est, Y_true = fit_synth$Y_true, 
+         std_err_i = fit_synth$std_err_i, 
+         std_err_t = fit_synth$std_err_t, 
+         std_err_it = fit_synth$std_err_it)
+
+# Diff-in-diff
+save(fit_diff_in_diff, file = "smoke_did_nocov.RData")
+writeMat("smoke_did_nocov.mat", 
+         w = fit_diff_in_diff$w, int = fit_diff_in_diff$int, 
+         Y_est = fit_diff_in_diff$Y_est, Y_true = fit_diff_in_diff$Y_true, 
+         std_err_i = fit_diff_in_diff$std_err_i, 
+         std_err_t = fit_diff_in_diff$std_err_t, 
+         std_err_it = fit_diff_in_diff$std_err_it)
 
 ###########################
 ########## Plots ##########

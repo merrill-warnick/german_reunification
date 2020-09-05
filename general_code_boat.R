@@ -56,9 +56,6 @@ fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_i
 
 
 
-#################################
-########## Save Values ##########
-#################################
 
 #################################
 ########## Save Values ##########
@@ -67,8 +64,8 @@ fit_diff_in_diff <- general_estimate(data$Y, data$Z, data$X, W, method = "diff_i
 # Save matrices for future reference and plots
 
 # Elastic Net 
-save(fit_elastic_net, file = "germ_elast_nocov.RData")
-writeMat("germ_elast_nocov.mat", 
+save(fit_elastic_net, file = "boat_elast_nocov.RData")
+writeMat("boat_elast_nocov.mat", 
          w = fit_elastic_net$w, int = fit_elastic_net$int, 
          Y_est = fit_elastic_net$Y_est, Y_true = fit_elastic_net$Y_true, 
          std_err_i = fit_elastic_net$std_err_i, 
@@ -76,8 +73,8 @@ writeMat("germ_elast_nocov.mat",
          std_err_it = fit_elastic_net$std_err_it)
 
 # Constrained regression
-save(fit_constr_reg, file = "germ_constr_reg_nocov.RData")
-writeMat("germ_constr_reg_nocov.mat", 
+save(fit_constr_reg, file = "boat_constr_reg_nocov.RData")
+writeMat("boat_constr_reg_nocov.mat", 
          w = fit_constr_reg$w, int = fit_constr_reg$int, 
          Y_est = fit_constr_reg$Y_est, Y_true = fit_constr_reg$Y_true, 
          std_err_i = fit_constr_reg$std_err_i, 
@@ -85,8 +82,8 @@ writeMat("germ_constr_reg_nocov.mat",
          std_err_it = fit_constr_reg$std_err_it)
 
 # Best subset 
-save(fit_subs, file = "germ_subs_nocov.RData")
-writeMat("germ_subs_nocov.mat", 
+save(fit_subs, file = "boat_subs_nocov.RData")
+writeMat("boat_subs_nocov.mat", 
          w = fit_subs$w, int = fit_subs$int, 
          Y_est = fit_subs$Y_est, Y_true = fit_subs$Y_true, 
          std_err_i = fit_subs$std_err_i, 
@@ -94,8 +91,8 @@ writeMat("germ_subs_nocov.mat",
          std_err_it = fit_subs$std_err_it)
 
 # Synthetic Control
-save(fit_synth, file = "germ_synth_nocov.RData")
-writeMat("germ_synth_nocov.mat", 
+save(fit_synth, file = "boat_synth_nocov.RData")
+writeMat("boat_synth_nocov.mat", 
          w = fit_synth$w, int = fit_synth$int, 
          Y_est = fit_synth$Y_est, Y_true = fit_synth$Y_true, 
          std_err_i = fit_synth$std_err_i, 
@@ -103,8 +100,8 @@ writeMat("germ_synth_nocov.mat",
          std_err_it = fit_synth$std_err_it)
 
 # Diff-in-diff
-save(fit_diff_in_diff, file = "germ_did_nocov.RData")
-writeMat("germ_did_nocov.mat", 
+save(fit_diff_in_diff, file = "boat_did_nocov.RData")
+writeMat("boat_did_nocov.mat", 
          w = fit_diff_in_diff$w, int = fit_diff_in_diff$int, 
          Y_est = fit_diff_in_diff$Y_est, Y_true = fit_diff_in_diff$Y_true, 
          std_err_i = fit_diff_in_diff$std_err_i, 
