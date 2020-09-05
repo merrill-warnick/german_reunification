@@ -20,12 +20,11 @@ source('functions.R')
 ################################
 
 
-dat <- readMat("boat_data.mat")
+data <- readMat("boat_data.mat")
 X <- dat$X
 Y <- dat$Y
 Z <- dat$Z
 
-data <- list('Y' <- dat$Y, 'Z' = dat$Z, 'X' = dat$X)
 
 W <- matrix(0, 1, dim(Y)[2])
 
@@ -131,7 +130,7 @@ abline(v = 1990, col = "grey96")
 abline(v = 1995, col = "grey96")
 legend("topleft",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
 arrows(x0=1987, y0=32500,x1=1988, y1=32499, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
-text(x=1981,y=32500,pos=4,label = "Reunification", cex = 0.5)
+text(x=1981,y=32500,pos=4,label = "Policy", cex = 0.5)
 
 
 ### Standard Errors
