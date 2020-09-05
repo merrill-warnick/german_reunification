@@ -4,6 +4,7 @@ rm(list = ls())
 library(R.matlab)
 library(shape)
 library(ggplot2)
+library(egg)
 
 source('functions.R')
 
@@ -254,8 +255,26 @@ weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
 theme_set(theme_bw())
 
 control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL")
-weights_synth <- as.data.frame(cbind(control_names,weights[,3]))
+weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
 p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
-p
+
+weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
+colnames(weights_constr_reg) <- c("controls","w")
+weights_constr_reg$w <- as.numeric(as.character(weights_constr_reg$w))
+p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "green",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("green"))+ylim(-1, 1)+coord_flip()
+
+weights_elastic_net <- as.data.frame(cbind(control_names,weights[,3]))
+colnames(weights_elastic_net) <- c("controls","w")
+weights_elastic_net$w <- as.numeric(as.character(weights_elastic_net$w))
+p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()
+
+weights_subs <- as.data.frame(cbind(control_names,weights[,4]))
+colnames(weights_subs) <- c("controls","w")
+weights_subs$w <- as.numeric(as.character(weights_subs$w))
+p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()
+
+figure <- ggarrange(p, p1, p2,p3,
+                    ncol = 4, nrow = 1)
+figure
