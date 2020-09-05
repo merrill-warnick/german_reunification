@@ -21,9 +21,9 @@ source('functions.R')
 
 
 data <- readMat("boat_data.mat")
-X <- dat$X
-Y <- dat$Y
-Z <- dat$Z
+X <- data$X
+Y <- data$Y
+Z <- data$Z
 
 
 W <- matrix(0, 1, dim(Y)[2])
