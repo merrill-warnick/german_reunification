@@ -152,40 +152,36 @@ writeMat("smoke_did_nocov.mat",
 ########## Plots ##########
 ###########################
 
-## Load data -> or can also simply call from before
-data_did <- readMat('smok_did_nocov.mat')
-data_elast <- readMat('smok_elast_nocov.mat')
-data_subset <- readMat('smok_subs_nocov.mat')
-data_synth <- readMat('smok_synth.mat')
-data_constr <- readMat('smok_constr_reg_nocov.mat')
-
 ### Treatment figure
-plot(1970:2000, data_did$Y.true, type = "l", lty = 2, ylim = c(0, 35000), xlim = c(1960,2003), col = "red", main = "California: Smoking per capita", xlab = "Year", ylab = "", las = 1, bty = 'L')
-lines(1970:2000, data_did$Y.did, lty = 1, col= "yellow")
-lines(1970:2000, data_elast$Y.elast, lty = 1, col= "purple4")
-lines(1970:2000, data_subset$Y.subs, lty = 1, col= "orange")
-lines(1970:2000, data_synth$Y.synth, lty = 1, col= "blue")
+plot(1970:2000, fit_diff_in_diff$Y_true, type = "l", lty = 2, ylim = c(0, 150), xlim = c(1970,2000), col = "red", main = "California: Smoking per capita", xlab = "Year", ylab = "", las = 1, bty = 'L')
+lines(1970:2000, fit_synth$Y_est, lty = 1, col= "blue")
+lines(1970:2000, fit_constr_reg$Y_est, lty = 1, col= "green")
+lines(1970:2000, fit_elastic_net$Y_est, lty = 1, col= "purple4")
+lines(1970:2000, fit_subs$Y_est, lty = 1, col= "orange")
+lines(1970:2000, fit_diff_in_diff$Y_est, lty = 1, col= "yellow")
 abline(v = 1989, col="black")
 abline(v = 1975, col = "grey96")
 abline(v = 1980, col = "grey96")
 abline(v = 1985, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 1995, col = "grey96")
-legend("topleft",legend=c("Actual data","Difference-in-Differences", expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)", "Original synth."), col=c("red","yellow","purple4","orange","blue"),lty=c(2,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
-arrows(x0=1987, y0=32500,x1=1988, y1=32499, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
-text(x=1981,y=32500,pos=4,label = "Reunification", cex = 0.5)
+abline(v = 2000, col = "grey96")
+legend("topright",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
+arrows(x0=1987.5, y0=145,x1=1988.5, y1=145, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
+text(x=1984.5,y=145,pos=4,label = "Policy", cex = 0.65)
+
 
 ### Standard Errors
 
-tau <- cbind(data_did$Y.true[19:31]-data_synth$Y.synth[19:31],data_did$Y.true[19:31]-data_elast$Y.elast[19:31]) # cbind for each method
-std_err <- cbind(data_synth$std.err.synth.i, data_elast$std.err.elast.i)
+tau <- cbind(fit_synth$Y_true[20:31]-fit_synth$Y_est[20:31],fit_elastic_net$Y_true[20:31]-fit_elastic_net$Y_est[20:31]) # cbind for each method
+std_err <- cbind(fit_synth$std_err_i, fit_elastic_net$std_err_i)
 
 plot(1989:2000, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1989,2000), col = "blue", main = "California: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
 lines(1989:2000, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
 lines(1989:2000, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
-lines(1989:2000, tau[,2], lty = 1, col= "plum2")
-lines(1989:2000, tau[,2]+1.96*std_err[,2], lty = 2, col= "plum2")
-lines(1989:2000, tau[,2]-1.96*std_err[,2], lty = 2, col= "plum2")
+lines(1989:2000, tau[,2], lty = 1, col= "darkmagenta")
+lines(1989:2000, tau[,2]+1.96*std_err[,2], lty = 2, col= "darkmagenta")
+lines(1989:2000, tau[,2]-1.96*std_err[,2], lty = 2, col= "darkmagenta")
 abline(h = 0, col= "black")
 abline(v = 1990, col = "grey96")
 abline(v = 1991, col = "grey96")
@@ -198,38 +194,34 @@ abline(v = 1997, col = "grey96")
 abline(v = 1998, col = "grey96")
 abline(v = 1999, col = "grey96")
 abline(v = 2000, col = "grey96")
-legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
 
-## Counterfactual
-#tau_co <- cbind(data_elast$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_synth$Y.synth.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)],data_synth$Y.true.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]-data_elast$Y.elast.co[(data_elast$T0.co+1):(data_elast$T0.co+data_elast$T1.co)]) # cbind for each method
-#std_err_co <- cbind(data_synth$std.err.synth.i.co, data_elast$std.err.elast.i.co)
-
-#plot(1981:1989, tau_co[,1], type = "l", lty = 1, ylim = c(-12500, 12500), xlim = c(1981,1989), col = "blue", main = "West Germany: Counterfactual", xlab = "Year", ylab = "", las = 1, bty = "L")
-#lines(1981:1989, tau_co[,1]+1.96*std_err_co[,1], lty = 3, col= "blue")
-#lines(1981:1989, tau_co[,1]-1.96*std_err_co[,1], lty = 3, col= "blue")
-#lines(1981:1989, tau_co[,2], lty = 1, col= "plum2")
-#lines(1981:1989, tau_co[,2]+1.96*std_err_co[,2], lty = 2, col= "plum2")
-#lines(1981:1989, tau_co[,2]-1.96*std_err_co[,2], lty = 2, col= "plum2")
-#abline(h = 0, col= "black")
-#abline(v = 1982, col = "grey96")
-#abline(v = 1983, col = "grey96")
-#abline(v = 1984, col = "grey96")
-#abline(v = 1985, col = "grey96")
-#abline(v = 1986, col = "grey96")
-#abline(v = 1987, col = "grey96")
-#abline(v = 1988, col = "grey96")
-#abline(v = 1989, col = "grey96")
-#legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda,"and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","plum2","plum2"),lty=c(1,2,1,2), ncol=1, bty = 'n', cex = 0.65)
 
 ## Weights
-weights <- cbind(data_synth$w.synth, data_elast$w.elast, data_subset$w.subs)
+weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
 theme_set(theme_bw())
 
-
-
 control_names <- c('AL', 'AR', 'CO', 'CT', 'DE', 'GA', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NM', 'NC', 'ND', 'OH', 'OK', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WV', 'WI', 'WY')
-weights_synth <- as.data.frame(cbind(control_names,weights[,3]))
+weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
 p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
-p
+
+weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
+colnames(weights_constr_reg) <- c("controls","w")
+weights_constr_reg$w <- as.numeric(as.character(weights_constr_reg$w))
+p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "forestgreen",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("forestgreen"))+ylim(-1, 1)+coord_flip()
+
+weights_elastic_net <- as.data.frame(cbind(control_names,weights[,3]))
+colnames(weights_elastic_net) <- c("controls","w")
+weights_elastic_net$w <- as.numeric(as.character(weights_elastic_net$w))
+p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()
+
+weights_subs <- as.data.frame(cbind(control_names,weights[,4]))
+colnames(weights_subs) <- c("controls","w")
+weights_subs$w <- as.numeric(as.character(weights_subs$w))
+p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()
+
+figure <- ggarrange(p, p1, p2,p3,
+                    ncol = 4, nrow = 1, top = "California: Weights")
+figure
