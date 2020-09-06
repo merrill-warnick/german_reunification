@@ -357,7 +357,8 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
   
   ################ Find the optimal number of control units in a subset ################
-  n_max <- N - 1 # maximum number of units in subset
+  #n_max <- N - 1 # maximum number of units in subset
+  n_max <- 6
   
   # Why N-2 and N-1???? 
   n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # Define n_grid: only goes up to min(T0_tr-1, n_max) to prevent overfitting
@@ -412,7 +413,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   err <- apply(t(scale(t(err))), 2, mean) # Mean error over all units
   ind_opt <- which.min(err) 
   n_opt <- n_grid[ind_opt]                # Find optimal number of units in subset
-  
+  print("here")
   return(n_opt)
 }
 
