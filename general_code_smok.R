@@ -217,6 +217,28 @@ abline(v = 1999, col = "grey96")
 abline(v = 2000, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
 
+### Standard Errors Counterfactual
+
+tau <- cbind(fit_synth_co$Y_true[10:19]-fit_synth_co$Y_est[10:19],fit_elastic_net_co$Y_true[10:19]-fit_elastic_net_co$Y_est[10:19]) # cbind for each method
+std_err <- cbind(fit_synth_co$std_err_i, fit_elastic_net_co$std_err_i)
+
+plot(1980:1988, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1980,1988), col = "blue", main = "California: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
+lines(1980:1988, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
+lines(1980:1988, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
+lines(1980:1988, tau[,2], lty = 1, col= "darkmagenta")
+lines(1980:1988, tau[,2]+1.96*std_err[,2], lty = 2, col= "darkmagenta")
+lines(1980:1988, tau[,2]-1.96*std_err[,2], lty = 2, col= "darkmagenta")
+abline(h = 0, col= "black")
+abline(v = 1981, col = "grey96")
+abline(v = 1982, col = "grey96")
+abline(v = 1983, col = "grey96")
+abline(v = 1984, col = "grey96")
+abline(v = 1985, col = "grey96")
+abline(v = 1986, col = "grey96")
+abline(v = 1987, col = "grey96")
+abline(v = 1988, col = "grey96")
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
+
 
 ## Weights
 weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
