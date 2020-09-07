@@ -108,6 +108,28 @@ writeMat("boat_did_nocov.mat",
          std_err_t = fit_diff_in_diff$std_err_t, 
          std_err_it = fit_diff_in_diff$std_err_it)
 
+
+
+####################################
+########## Counterfactual ##########
+####################################
+T0 <- T0 <- dim(Z)[1]
+T0_co <- 4
+T1_co <- T0 - T0_co
+
+Y_co = data$Y[1:T0,]
+Z_co = data$Z[1:T0_co,]
+X_co = data$X
+
+fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_net", 
+                                       tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                                            seq(from = 2e-01, to = 100, by = 1e-01), 
+                                                            seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
+fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth)
+
+save(fit_elastic_net_co, file = "boat_en_co_nocov.RData")
+save(fit_synth_co, file = "boat_synth_co_nocov.RData")
+
 ###########################
 ########## Plots ##########
 ###########################
@@ -153,6 +175,23 @@ abline(v = 1989, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 1991, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
+
+
+### Standard Errors Counterfactual
+tau <- cbind(fit_synth$Y_true[5:7]-fit_synth$Y_est[5:7],fit_elastic_net$Y_true[5:7]-fit_elastic_net$Y_est[5:7]) # cbind for each method
+std_err <- cbind(fit_synth$std_err_i, fit_elastic_net$std_err_i)
+
+plot(1977:1979, tau[,1], type = "l", lty = 1, ylim = c(-1, 1), xlim = c(1977,1979), col = "blue", main = "Mariel Boatlift: Counterfactual Treatment", xlab = "Year", ylab = "", las = 1, bty = "L")
+lines(1977:1979, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
+lines(1977:1979, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
+lines(1977:1979, tau[,2], lty = 1, col= "darkmagenta")
+lines(1977:1979, tau[,2]+1.96*std_err[,2], lty = 2, col= "darkmagenta")
+lines(1977:1979, tau[,2]-1.96*std_err[,2], lty = 2, col= "darkmagenta")
+abline(h = 0, col= "black")
+abline(v = 1978, col = "grey96")
+abline(v = 1979, col = "grey96")
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
+
 
 ## Weights
 weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
