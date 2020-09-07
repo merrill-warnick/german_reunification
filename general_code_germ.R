@@ -209,6 +209,22 @@ writeMat("germ_did_nocov.mat",
          std_err_t = fit_diff_in_diff$std_err_t, 
          std_err_it = fit_diff_in_diff$std_err_it)
 
+####################################
+########## Counterfactual ##########
+####################################
+T0_co <- 21
+T1_co <- T0 - T0_co
+
+Y_co = data$Y[1:T0,]
+Z_co = data$Z[1:T0_co,]
+X_co = data$X[1:T0_co,]
+
+fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_net", 
+                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                                         seq(from = 2e-01, to = 100, by = 1e-01), 
+                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
+fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth)
+
 ###########################
 ########## Plots ##########
 ###########################
