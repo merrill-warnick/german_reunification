@@ -178,10 +178,11 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 
 
 ### Standard Errors Counterfactual
-tau <- cbind(fit_synth$Y_true[5:7]-fit_synth$Y_est[5:7],fit_elastic_net$Y_true[5:7]-fit_elastic_net$Y_est[5:7]) # cbind for each method
-std_err <- cbind(fit_synth$std_err_i, fit_elastic_net$std_err_i)
+tau <- cbind(fit_synth_co$Y_true[5:7]-fit_synth_co$Y_est[5:7],fit_elastic_net_co$Y_true[5:7]-fit_elastic_net_co$Y_est[5:7]) # cbind for each method
+std_err <- cbind(fit_synth_co$std_err_i, fit_elastic_net_co$std_err_i)
 
-plot(1977:1979, tau[,1], type = "l", lty = 1, ylim = c(-1, 1), xlim = c(1977,1979), col = "blue", main = "Mariel Boatlift: Counterfactual Treatment", xlab = "Year", ylab = "", las = 1, bty = "L")
+plot(1977:1979, tau[,1], type = "l", lty = 1, ylim = c(-1, 1), xlim = c(1977,1979), col = "blue", main = "Mariel Boatlift: Counterfactual Treatment", xlab = "Year", ylab = "", las = 1, bty = "L", xaxt = "n")
+axis(1, at = 1977:1979)
 lines(1977:1979, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
 lines(1977:1979, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
 lines(1977:1979, tau[,2], lty = 1, col= "darkmagenta")
