@@ -130,6 +130,7 @@ tune_params_synth <- prep_data(d = d,
                                cont_set = unique(d$index)[-7],
                                years = c(1971, 1980, 1981, 1990, 1960, 2003),
                                names = 2)
+## ?? why twice tune_params_synth??
 
 #prepare W:
 
@@ -212,6 +213,46 @@ writeMat("germ_did_nocov.mat",
 ####################################
 ########## Counterfactual ##########
 ####################################
+dataprep.out <-
+  dataprep(
+    foo = d,
+    predictors    = c("gdp","trade","infrate"),
+    dependent     = "gdp",
+    unit.variable = 1,
+    time.variable = 3,
+    special.predictors = list(
+      list("industry" ,1981:1990, c("mean")),
+      list("schooling",c(1980,1985), c("mean")),
+      list("invest80" ,1980, c("mean"))
+    ),
+    treatment.identifier = 7,
+    controls.identifier = unique(d$index)[-7],
+    time.predictors.prior = 1981:1990,
+    time.optimize.ssr = 1960:1980,
+    unit.names.variable = 2,
+    time.plot = 1960:1989
+  )
+
+#Extract the treatment and control units from the dataprep object  
+X0_co_synth <- dataprep.out$X0
+X1_co_synth <- dataprep.out$X1
+
+Z1_co_synth <- dataprep.out$Z1
+Z0_co_synth <- dataprep.out$Z0
+
+Y1_co_synth <- dataprep.out$Y1plot
+Y0_co_synth <- dataprep.out$Y0plot
+
+#Re-bind data so that the treated unit is in the first position
+# [X1,X0]
+X_co_synth <- cbind(X1_co_synth, X0_co_synth)
+
+# [Y1,Y0]
+Y_co_synth <- cbind(Y1_co_synth, Y0_co_synth)
+
+# [Z1,Z0]
+Z_co_synth <- cbind(Z1_co_synth, Z0_co_synth)
+
 T0 <- T0 <- dim(Z)[1]
 T0_co <- 21
 T1_co <- T0 - T0_co
@@ -224,10 +265,10 @@ fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_ne
                                     tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                          seq(from = 2e-01, to = 100, by = 1e-01), 
                                                          seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
-fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth)
+fit_synth_co <- general_estimate(Y_co_synth, Z_co_synth, X_co_synth, W, method = "synth", tune_params = tune_params_synth)
 
 save(fit_elastic_net_co, file = "germ_en_co_nocov.RData")
-save(fit_synth_co, file = "germ_synth_co_nocov.RData")
+save(fit_synth_co, file = "germ_synth_co_nocov_other_dataprep.RData")
 
 ###########################
 ########## Plots ##########

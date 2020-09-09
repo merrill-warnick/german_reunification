@@ -219,7 +219,7 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 
 ### Standard Errors Counterfactual
 
-tau <- cbind(fit_synth_co$Y_true[10:19]-fit_synth_co$Y_est[10:19],fit_elastic_net_co$Y_true[10:19]-fit_elastic_net_co$Y_est[10:19]) # cbind for each method
+tau <- cbind(fit_synth_co$Y_true[11:19]-fit_synth_co$Y_est[11:19],fit_elastic_net_co$Y_true[11:19]-fit_elastic_net_co$Y_est[11:19]) # cbind for each method
 std_err <- cbind(fit_synth_co$std_err_i, fit_elastic_net_co$std_err_i)
 
 plot(1980:1988, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1980,1988), col = "blue", main = "California: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
