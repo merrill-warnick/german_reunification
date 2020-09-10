@@ -444,7 +444,8 @@ tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
       X1 = as.matrix(X[, ind_treat]),
       X0 = as.matrix(X[, -ind_treat]),
       Z1 = as.matrix(Z[, ind_treat]),
-      Z0 = as.matrix(Z[, -ind_treat])#,
+      Z0 = as.matrix(Z[, -ind_treat]),
+      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6#,
       #quadopt = 'LowRankQP'
     )
   

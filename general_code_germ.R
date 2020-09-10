@@ -136,7 +136,7 @@ tune_params_synth <- prep_data(d = d,
 
 W <- matrix(0, 1, dim(data$Y)[2])
 
-W[7] <- 1
+W[1] <- 1
 
 
 ###################################################
@@ -213,6 +213,66 @@ writeMat("germ_did_nocov.mat",
 ####################################
 ########## Counterfactual ##########
 ####################################
+T0 <- T0 <- dim(Z)[1]
+T0_co <- 21
+T1_co <- T0 - T0_co
+
+Y_co = data$Y[1:T0,]
+Z_co = data$Z[1:T0_co,]
+X_co = data$X
+
+fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_net", 
+                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
+                                                         seq(from = 2e-01, to = 100, by = 1e-01), 
+                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
+
+dataprep.out <-
+  dataprep(
+    foo = d,
+    predictors    = c("gdp","trade","infrate"),
+    dependent     = "gdp",
+    unit.variable = 1,
+    time.variable = 3,
+    special.predictors = list(
+      list("industry", 1971:1980, c("mean")),
+      list("schooling",c(1970,1975), c("mean")),
+      list("invest70" ,1980, c("mean"))
+    ),
+    treatment.identifier = 7,
+    controls.identifier = unique(d$index)[-7],
+    time.predictors.prior = 1971:1980,
+    time.optimize.ssr = 1981:1990,
+    unit.names.variable = 2,
+    time.plot = 1960:2003
+  )
+X0 <- dataprep.out$X0
+X1 <- dataprep.out$X1
+
+Z1 <- dataprep.out$Z1
+Z0 <- dataprep.out$Z0
+
+Y1 <- dataprep.out$Y1plot
+Y0 <- dataprep.out$Y0plot
+
+#Re-bind data so that the treated unit is in the first position
+# [X1,X0]
+X <- cbind(X1, X0)
+
+# [Y1,Y0]
+Y <- cbind(Y1, Y0)
+
+# [Z1,Z0]
+Z <- cbind(Z1, Z0)
+
+tune_params_synth <- list( "X" = X, "Y" = Y, "Z" = Z)
+
+# fit training model
+synth.out <- 
+  synth(
+    data.prep.obj=dataprep.out,
+    Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6
+  )
+
 dataprep.out <-
   dataprep(
     foo = d,
@@ -253,18 +313,6 @@ Y_co_synth <- cbind(Y1_co_synth, Y0_co_synth)
 # [Z1,Z0]
 Z_co_synth <- cbind(Z1_co_synth, Z0_co_synth)
 
-T0 <- T0 <- dim(Z)[1]
-T0_co <- 21
-T1_co <- T0 - T0_co
-
-Y_co = data$Y[1:T0,]
-Z_co = data$Z[1:T0_co,]
-X_co = data$X
-
-fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_net", 
-                                    tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
-                                                         seq(from = 2e-01, to = 100, by = 1e-01), 
-                                                         seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
 fit_synth_co <- general_estimate(Y_co_synth, Z_co_synth, X_co_synth, W, method = "synth", tune_params = tune_params_synth)
 
 save(fit_elastic_net_co, file = "germ_en_co_nocov.RData")
