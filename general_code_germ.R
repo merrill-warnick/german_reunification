@@ -408,3 +408,4 @@ p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill 
 figure <- ggarrange(p, p1, p2,p3,
                     ncol = 4, nrow = 1, top = "West Germany: Weights")
 figure
+
