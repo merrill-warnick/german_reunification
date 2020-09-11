@@ -245,3 +245,4 @@ annotate_figure(
   figure,
   top = text_grob("Mariel Boatlift: Weights", face = "bold", size = 14)
 )
+
