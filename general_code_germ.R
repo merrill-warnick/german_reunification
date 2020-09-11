@@ -388,27 +388,48 @@ control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR"
 weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
-p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()+ theme(panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey64" ))
+p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank())
 
 weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
 colnames(weights_constr_reg) <- c("controls","w")
 weights_constr_reg$w <- as.numeric(as.character(weights_constr_reg$w))
-p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "forestgreen",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("forestgreen"))+ylim(-1, 1)+coord_flip()
-
+p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "forestgreen",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("forestgreen"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank())
 
 weights_elastic_net <- as.data.frame(cbind(control_names,weights[,3]))
 colnames(weights_elastic_net) <- c("controls","w")
 weights_elastic_net$w <- as.numeric(as.character(weights_elastic_net$w))
-p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()
-
+p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank())
 
 weights_subs <- as.data.frame(cbind(control_names,weights[,4]))
 colnames(weights_subs) <- c("controls","w")
 weights_subs$w <- as.numeric(as.character(weights_subs$w))
-p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()
-
+p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank()) 
 
 figure <- ggarrange(p, p1, p2,p3,
-                    ncol = 4, nrow = 1, top = "West Germany: Weights")
+                    ncol = 4, nrow = 1)
+annotate_figure(
+  figure,
+  top = text_grob("West Germany: Weigths", color = "black", face = "bold", size = 14),
+)
 figure
 
