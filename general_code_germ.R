@@ -4,6 +4,7 @@ rm(list = ls())
 library(R.matlab)
 library(shape)
 library(ggplot2)
+library(ggpubr)
 library(egg)
 
 source('functions.R')
@@ -426,10 +427,11 @@ p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill 
         panel.background = element_blank()) 
 
 figure <- ggarrange(p, p1, p2,p3,
-                    ncol = 4, nrow = 1)
+                    ncol = 4, nrow = 1, top = "West Germany: Weights")
 annotate_figure(
   figure,
-  top = text_grob("West Germany: Weigths", color = "black", face = "bold", size = 14),
+  top = "West Germany: Weights",
+  face = "bold"
 )
 figure
 
