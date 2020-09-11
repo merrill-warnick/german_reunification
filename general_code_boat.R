@@ -126,7 +126,8 @@ fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_ne
                                        tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                             seq(from = 2e-01, to = 100, by = 1e-01), 
                                                             seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
-fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth)
+tune_params_synth_co <- list('X' = X[3:5,],'Y' = Y, 'Z'= Z)
+fit_synth_co <- general_estimate(Y_co, Z_co, X_co[3:nrow(X_co),], W, method = "synth", tune_params = tune_params_synth_co)
 
 save(fit_elastic_net_co, file = "boat_en_co_nocov.RData")
 save(fit_synth_co, file = "boat_synth_co_nocov.RData")
