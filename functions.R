@@ -445,8 +445,7 @@ tuning_parameters_synth <- function(Y, Z, X, ind_treat=1){
       X0 = as.matrix(X[, -ind_treat]),
       Z1 = as.matrix(Z[, ind_treat]),
       Z0 = as.matrix(Z[, -ind_treat]),
-      Margin.ipop=.005,Sigf.ipop=7,Bound.ipop=6#,
-      #quadopt = 'LowRankQP'
+      quadopt = 'LowRankQP'
     )
   
   ############# output vweights ####################
@@ -536,8 +535,8 @@ find_weights_synth <- function(Y, Z, X, ind_treat=1, vweight){
       X0 = as.matrix(X[, -ind_treat]),
       Z1 = as.matrix(Z[, ind_treat]),
       Z0 = as.matrix(Z[, -ind_treat]),
-      custom.v=as.numeric(vweight)#,
-      #quadopt = "LowRankQP"
+      custom.v=as.numeric(vweight),
+      quadopt = "LowRankQP"
     )
   
   w<- list("intercept" = 0, "weights" = synth.out$solution.w)

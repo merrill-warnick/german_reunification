@@ -316,7 +316,7 @@ Z_co_synth <- cbind(Z1_co_synth, Z0_co_synth)
 fit_synth_co <- general_estimate(Y_co_synth, Z_co_synth, X_co_synth, W, method = "synth", tune_params = tune_params_synth)
 
 save(fit_elastic_net_co, file = "germ_en_co_nocov.RData")
-save(fit_synth_co, file = "germ_synth_co_nocov_other_dataprep.RData")
+save(fit_synth_co, file = "germ_synth_co_nocov.RData")
 
 ###########################
 ########## Plots ##########
@@ -335,9 +335,9 @@ abline(v = 1970, col = "grey96")
 abline(v = 1980, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 2000, col = "grey96")
-legend("topleft",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
+legend("topleft",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.6)
 arrows(x0=1987, y0=32500,x1=1988.5, y1=32500, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
-text(x=1980.5,y=32500,pos=4,label = "Reunification", cex = 0.55)
+text(x=1979,y=32500,pos=4,label = "Reunification", cex = 0.55)
 
 ### Standard Errors
 tau <- cbind(fit_synth$Y_true[31:44]-fit_synth$Y_est[31:44],fit_elastic_net$Y_true[31:44]-fit_elastic_net$Y_est[31:44]) # cbind for each method
@@ -382,28 +382,31 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 
 # Weights
 weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
-theme_set(theme_bw())
+#theme_set(theme_bw())
 
 control_names <- c("USA", "GBR", "AUT", "BEL", "DNK", "FRA", "ITA", "NLD", "NOR", "CHE", "JPN", "GRC", "PRT", "ESP","AUS","NZL")
 weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
-p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
+p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()+ theme(panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey64" ))
 
 weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
 colnames(weights_constr_reg) <- c("controls","w")
 weights_constr_reg$w <- as.numeric(as.character(weights_constr_reg$w))
 p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "forestgreen",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("forestgreen"))+ylim(-1, 1)+coord_flip()
 
+
 weights_elastic_net <- as.data.frame(cbind(control_names,weights[,3]))
 colnames(weights_elastic_net) <- c("controls","w")
 weights_elastic_net$w <- as.numeric(as.character(weights_elastic_net$w))
 p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()
 
+
 weights_subs <- as.data.frame(cbind(control_names,weights[,4]))
 colnames(weights_subs) <- c("controls","w")
 weights_subs$w <- as.numeric(as.character(weights_subs$w))
 p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()
+
 
 figure <- ggarrange(p, p1, p2,p3,
                     ncol = 4, nrow = 1, top = "West Germany: Weights")

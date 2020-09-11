@@ -202,7 +202,7 @@ control_names <- c('NYC', 'LA', 'CHG', 'PHL', 'DET', 'SF', 'DC', 'BST', 'SUFF', 
 weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
-p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()
+p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()+ scale_x_continuous(breaks = NULL) 
 
 weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
 colnames(weights_constr_reg) <- c("controls","w")
