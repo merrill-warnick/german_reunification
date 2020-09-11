@@ -4,6 +4,7 @@ rm(list = ls())
 library(R.matlab)
 library(shape)
 library(ggplot2)
+library(ggpubr)
 library(egg)
 
 source('functions.R')
@@ -193,32 +194,53 @@ abline(v = 1978, col = "grey96")
 abline(v = 1979, col = "grey96")
 legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
 
-
 ## Weights
 weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
-theme_set(theme_bw())
 
 control_names <- c('NYC', 'LA', 'CHG', 'PHL', 'DET', 'SF', 'DC', 'BST', 'SUFF', 'PIT', 'SLO', 'BLT', 'CLV', 'HOU', 'NWK', 'MNN', 'DAL', 'SEA', 'ANH', 'MLWK', 'ATL', 'CIN', 'PAT', 'SD', 'BUF', 'KNS', 'DEN', 'SBRN', 'IND', 'SJC', 'NORL', 'TMP', 'POR', 'COL', 'ROCH', 'SAC', 'FWOR', 'BIR', 'ALB', 'NOR', 'AKR', 'ECHG', 'GRSB')
 weights_synth <- as.data.frame(cbind(control_names,weights[,1]))
 colnames(weights_synth) <- c("controls","w")
 weights_synth$w <- as.numeric(as.character(weights_synth$w))
-p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "blue",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("royalblue"))+ylim(-1, 1)+coord_flip()+ scale_x_continuous(breaks = NULL) 
+p <- ggplot(weights_synth, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "steelblue3",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Original synth.")+scale_fill_manual(values = c("steelblue3"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank())  
 
 weights_constr_reg <- as.data.frame(cbind(control_names,weights[,2]))
 colnames(weights_constr_reg) <- c("controls","w")
 weights_constr_reg$w <- as.numeric(as.character(weights_constr_reg$w))
-p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "forestgreen",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("forestgreen"))+ylim(-1, 1)+coord_flip()
+p1 <- ggplot(weights_constr_reg, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "springgreen3",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Reg./w.restr.")+scale_fill_manual(values = c("springgreen3"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank()) 
 
 weights_elastic_net <- as.data.frame(cbind(control_names,weights[,3]))
 colnames(weights_elastic_net) <- c("controls","w")
 weights_elastic_net$w <- as.numeric(as.character(weights_elastic_net$w))
-p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "purple",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("purple"))+ylim(-1, 1)+coord_flip()
+p2 <- ggplot(weights_elastic_net, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "maroon4",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Elastic Net")+scale_fill_manual(values = c("maroon4"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank()) 
 
 weights_subs <- as.data.frame(cbind(control_names,weights[,4]))
 colnames(weights_subs) <- c("controls","w")
 weights_subs$w <- as.numeric(as.character(weights_subs$w))
-p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange"))+ylim(-1, 1)+coord_flip()
+p3 <- ggplot(weights_subs, aes(x=controls, y=w))+geom_bar(stat="identity", fill = "orange2",color ="black", show.legend = FALSE)+labs(title="",x="", y = "Best subset")+scale_fill_manual(values = c("orange2"))+ylim(-1, 1)+coord_flip()+ theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major.x = element_blank(),panel.grid.major.y = element_line( size=.1, color="grey96" ),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(),
+        panel.background = element_blank()) 
 
 figure <- ggarrange(p, p1, p2,p3,
-                    ncol = 4, nrow = 1, top = "Mariel Boatlift: Weights")
-figure
+                    ncol = 4, nrow = 1)
+annotate_figure(
+  figure,
+  top = text_grob("Mariel Boatlift: Weights", face = "bold", size = 14)
+)
