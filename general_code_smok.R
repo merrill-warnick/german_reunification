@@ -153,7 +153,7 @@ writeMat("smoke_did_nocov.mat",
 ####################################
 ########## Counterfactual ##########
 ####################################
-T0 <- T0 <- dim(Z)[1]
+T0 <- dim(Z)[1]
 T0_co <- 10
 T1_co <- T0 - T0_co
 
@@ -165,10 +165,11 @@ fit_elastic_net_co <- general_estimate(Y_co, Z_co, X_co, W, method = "elastic_ne
                                        tune_params = list(c(seq(from = 1e-02, to = 1e-01, by = 1e-02),
                                                             seq(from = 2e-01, to = 100, by = 1e-01), 
                                                             seq(from = 200, to = 50000, by = 100)), seq(from = 0.1, to = 0.9, by = 0.1)))
-fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth)
+tune_params_synth_co <- list("Y" = Y_co, "Z" = Z_co, "X"= X_co)
+fit_synth_co <- general_estimate(Y_co, Z_co, X_co, W, method = "synth", tune_params = tune_params_synth_co)
 
-save(fit_elastic_net_co, file = "boat_en_co_nocov.RData")
-save(fit_synth_co, file = "boat_synth_co_nocov.RData")
+save(fit_elastic_net_co, file = "smoke_en_co_nocov.RData")
+save(fit_synth_co, file = "smoke_synth_co_nocov.RData")
 
 
 ###########################
@@ -224,7 +225,7 @@ legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err
 tau <- cbind(fit_synth_co$Y_true[11:19]-fit_synth_co$Y_est[11:19],fit_elastic_net_co$Y_true[11:19]-fit_elastic_net_co$Y_est[11:19]) # cbind for each method
 std_err <- cbind(fit_synth_co$std_err_i, fit_elastic_net_co$std_err_i)
 
-plot(1980:1988, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1980,1988), col = "blue", main = "California: Standard Errors", xlab = "Year", ylab = "", las = 1, bty = "L")
+plot(1980:1988, tau[,1], type = "l", lty = 1, ylim = c(-100, 100), xlim = c(1980,1988), col = "blue", main = "California: Counterfactual Treatment", xlab = "Year", ylab = "", las = 1, bty = "L")
 lines(1980:1988, tau[,1]+1.96*std_err[,1], lty = 3, col= "blue")
 lines(1980:1988, tau[,1]-1.96*std_err[,1], lty = 3, col= "blue")
 lines(1980:1988, tau[,2], lty = 1, col= "darkmagenta")

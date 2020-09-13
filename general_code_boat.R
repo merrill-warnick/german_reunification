@@ -149,7 +149,7 @@ abline(v = 1980, col = "grey96")
 abline(v = 1985, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 1995, col = "grey96")
-legend("topright",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.7)
+legend("topright",legend=c("Actual data", "Original synth.", "Regression w/restrictions",expression(paste("Elastic net (opt. ", lambda," and ",alpha,")" )),"Best subset (opt. k)","Difference-in-Differences"), col=c("red","blue","green","purple4","orange","yellow"),lty=c(2,1,1,1,1,1), ncol=1, bty = 'n', cex = 0.6)
 arrows(x0=1978, y0=5.45,x1=1978.5, y1=5.45, col=c("black"), lwd=1 , length = 0.05,xpd=TRUE)
 text(x=1976.3,y=5.45,pos=4,label = "Policy", cex = 0.65)
 
@@ -176,7 +176,7 @@ abline(v = 1988, col = "grey96")
 abline(v = 1989, col = "grey96")
 abline(v = 1990, col = "grey96")
 abline(v = 1991, col = "grey96")
-legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.5)
 
 
 ### Standard Errors Counterfactual
@@ -193,7 +193,7 @@ lines(1977:1979, tau[,2]-1.96*std_err[,2], lty = 2, col= "darkmagenta")
 abline(h = 0, col= "black")
 abline(v = 1978, col = "grey96")
 abline(v = 1979, col = "grey96")
-legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.65)
+legend("topright",legend=c("ADH synth. treatment","ADH treatment +/-1.96*std.err.",expression(paste("Elastic net treatment (opt. ", lambda," and ",alpha,")" )),"Elastic net treatment +/-1.96*std.err."), col=c("blue","blue","darkmagenta","darkmagenta"),lty=c(1,3,1,2), ncol=1, bty = 'n', cex = 0.5)
 
 ## Weights
 weights <- cbind(fit_synth$w, fit_constr_reg$w, fit_elastic_net$w, fit_subs$w)
