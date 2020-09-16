@@ -357,12 +357,12 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   X <- as.matrix(cbind(X[,ind_treatment], X[,-ind_treatment]))
   
   ################ Find the optimal number of control units in a subset ################
-  n_max <- N - 1 # maximum number of units in subset
-  #n_max <- 5
+  #n_max <- N - 1 # maximum number of units in subset
+  n_max <- 7
   
   # Why N-2 and N-1???? 
-  n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # Define n_grid: only goes up to min(T0_tr-1, n_max) to prevent overfitting
-  #n_grid <- c(0:min(T0 - 1, n_max, N - 2))
+  #n_grid <- c(0:min(T0_tr - 1, n_max, N - 2)) # Define n_grid: only goes up to min(T0_tr-1, n_max) to prevent overfitting
+  n_grid <- c(0:min(T0 - 1, n_max, N - 2))
   nn <- length(n_grid)                        # Number of points in n grid
   err <- matrix(0, nrow = N - 1, ncol = nn)   # Matrix for storage of errors for each unit and n
   c <- matrix(1, nrow = T0, ncol = 1)         # Columns of 1s to add as constant for fit in subset
@@ -370,7 +370,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   ################ Iterate over which unit is treated for crossvalidation ################
   
   for (i in 2:N) {
-    
+    cat('Unit', toString(i), '\n')
     # Fix matrices 
     Y1 <- as.matrix(Y[,i])
     Y0 <- as.matrix(Y[,-c(1,i)]) 
@@ -388,7 +388,9 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
     
     ################ Iterate over subset size to find best subset of each size ################
     
-    for (n in 0:(nn - 1)) {                                     # iterate over number of control units in subset
+    for (n in 0:(nn - 1)) {   
+      cat('Subs', toString(n), '\n')
+      # iterate over number of control units in subset
       subs_n <- combn(c(1:(N - 2)), n, simplify = FALSE)        # Generates all possible combinations of 1:(N-2) of size n 
       int <- matrix(0, nrow = 1, ncol = length(subs_n))         # Intercept for each subset combination
       w <- matrix(0, nrow = N - 2, ncol = length(subs_n))       # Weight matrix for each of the N-2 units and subset combination
@@ -408,6 +410,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
       e <- Z1_te - int[rep(1, T1),j_opt] - Z0_te %*% w[,j_opt]  # Find error for that subset combination
       err[i - 1,n + 1] <- mean(e ^ 2)                           # Save error for optimal subset
     }
+    save(err, file = "error_subs_smoke.RData")
   }
   
   # Optimal n
@@ -415,6 +418,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   ind_opt <- which.min(err) 
   n_opt <- n_grid[ind_opt]                # Find optimal number of units in subset
   print("here")
+  print(err[ind_opt])
   return(n_opt)
 }
 
