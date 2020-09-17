@@ -369,7 +369,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
   
   ################ Iterate over which unit is treated for crossvalidation ################
   
-  for (i in 2:N) {
+  for (i in 20:N) {
     cat('Unit', toString(i), '\n')
     # Fix matrices 
     Y1 <- as.matrix(Y[,i])
@@ -410,7 +410,7 @@ tuning_parameters_best_subset<- function(Y,Z,X,ind_treatment=1){
       e <- Z1_te - int[rep(1, T1),j_opt] - Z0_te %*% w[,j_opt]  # Find error for that subset combination
       err[i - 1,n + 1] <- mean(e ^ 2)                           # Save error for optimal subset
     }
-    save(err, file = "error_subs_smoke.RData")
+    save(err, file = "error_subs_smoke_2.RData")
   }
   
   # Optimal n
